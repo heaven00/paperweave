@@ -1,0 +1,15 @@
+black==23.10.0
+pydantic
+pydantic_core
+scikit-image
+scikit-learn
+scipy
+langgraph
+langchain
+langsmith
+langchain_openai
+openai
+python-dotenv
+networkx
+
+
