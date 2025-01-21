@@ -8,8 +8,8 @@ langgraph
 langchain
 langsmith
 langchain_openai
+langflow
+langchain-docling
 openai
 python-dotenv
 networkx
-
-
