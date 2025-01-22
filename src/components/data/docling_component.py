@@ -4,6 +4,7 @@ from langflow.io import StrInput, Output
 from langflow.schema import Data
 from docling_core.transforms.chunker.hierarchical_chunker import HierarchicalChunker
 from docling.document_converter import DocumentConverter
+from langflow.schema import Data
 
 
 class DoclingComponent(Component):
@@ -24,7 +25,9 @@ class DoclingComponent(Component):
         Output(display_name="Chunked Text", name="chunks", method="build_output"),
     ]
 
-    def build_output(self) -> list[str]:
+    def build_output(self) -> Data:
         doc = self.converter.convert(self.url).document
-        return list(self.chunker.chunk(doc))
+        data = Data(value=self.url)
+        self.status = data
+        return data
 
