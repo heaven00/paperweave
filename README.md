@@ -14,17 +14,21 @@ if you are using another way to setup the environment that is also okay, you can
 copied from https://github.com/astral-sh/uv
 
 
-- create virtualenv with python 3.11 `uv -p 3.11 venv`
+- create virtualenv with python 3.11 `uv venv -p 3.11 venv`
 - activate virtualenv `source venv/bin/activate`
 - install requirements `uv pip install -r requirements.txt`
+
+
+### Hack to get docling running properly | Important step
+after `uv pip install -r requirements.txt` run `uv run pip install docling`
+these is a version mismatch of `typer` dependency in langflow and docling which is causing issues this forces it somehow to disregard that and install docling as is
+
 
 ### Running langflow
 *make sure the environment is activated*
 
-`DO_NOT_TRACK=true LANGFLOW_COMPONENTS_PATH=src/components langflow run`
+`uv run --env-file=langflow.env langflow run`
 
-- do not track to remove tracking 
-- langflow components path to load in custom components we might create for our use case
 
 ### versioning our flows
 - Download the flow as json using the export feature and put them under `src/flows` directory

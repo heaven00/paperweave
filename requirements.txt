@@ -6,13 +6,13 @@ scikit-image
 scikit-learn
 scipy
 certifi==2024.8.30
-typer==0.15.1
+typer==0.13
 typing_extensions==4.12.2
 langgraph
 langchain
 langsmith
 langchain_openai
-docling==1.11.0
+transformers
 openai
 python-dotenv
 networkx
