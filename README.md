@@ -14,7 +14,7 @@ if you are using another way to setup the environment that is also okay, you can
 copied from https://github.com/astral-sh/uv
 
 
-- create virtualenv `uv venv`
+- create virtualenv with python 3.11 `uv -p 3.11 venv`
 - activate virtualenv `source venv/bin/activate`
 - install requirements `uv pip install -r requirements.txt`
 
