@@ -29,6 +29,9 @@ these is a version mismatch of `typer` dependency in langflow and docling which 
 
 `uv run --env-file=langflow.env langflow run`
 
+Non-uv command to run langflow from the base folder of the project
+
+`DO_NOT_TRACK=true LANGFLOW_COMPONENTS_PATH=src/components langflow run`
 
 ### versioning our flows
 - Download the flow as json using the export feature and put them under `src/flows` directory
