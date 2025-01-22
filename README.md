@@ -35,3 +35,7 @@ these is a version mismatch of `typer` dependency in langflow and docling which 
 - commit to github
 - To load anyone's else flow use the import flow feature
 
+
+### install custom lib
+
+ - pip install -e .
