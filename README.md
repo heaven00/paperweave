@@ -20,7 +20,7 @@ copied from https://github.com/astral-sh/uv
 
 
 ### Hack to get docling running properly | Important step
-after `uv pip install -r requirements.txt` run `uv run pip install docling`
+after `uv pip install -r requirements.txt` run `uv pip install docling`
 these is a version mismatch of `typer` dependency in langflow and docling which is causing issues this forces it somehow to disregard that and install docling as is
 
 
@@ -42,3 +42,12 @@ Non-uv command to run langflow from the base folder of the project
 ### install custom lib
 
  - pip install -e .
+
+### docker
+
+`docker build -t paperweave_image`
+`docker run -p 7860:7860 paperweave_image`
+
+and to access the langflow interface.
+
+`http://localhost:7860`

@@ -33,8 +33,11 @@ RUN uv pip install --system -e .
 
 RUN uv pip install --system docling
 
+ENV DO_NOT_TRACK=true
+ENV LANGFLOW_COMPONENTS_PATH=src/components
+
 EXPOSE 7860
 
-CMD uv run --env-file=langflow.env langflow run
+CMD uv run langflow run
 # Set entrypoint to use the virtual environment by default
 #ENTRYPOINT ["/bin/bash", "-c", ". /app/venv/bin/activate && exec \"$@\"", "uv run --env-file=langflow.env langflow run"]
