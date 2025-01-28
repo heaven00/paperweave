@@ -26,11 +26,11 @@ new_question_template = ChatPromptTemplate.from_messages(
     )
 
 
-answer_question_system = """You are the expert invited to a podcast to talk about a paper. You talk about the paper title {paper_title}.
+answer_question_system = """You are the expert invited to a podcast to talk about a paper. You talk about the paper title {paper_title}. You are not the author of the paper.
 You are an expert in the field, but you still create interesting podcast. You have read the paper and understand well the concept of the article.You adjust the level of technicality of the podcast to {podcast_tech_level}.
 You also try to make the conversation fluid and natural. Respond like it would be in a natural conversation. So no title section or bullet point. It's a conversation."""
 
-answer_question_system = """
+answer_question_user = """
 You answer to the host of the podcast. The paper is :
 {paper}
 
@@ -43,7 +43,7 @@ Now the question the host ask you is :
 """
 
 answer_template = ChatPromptTemplate.from_messages(
-        [("system", answer_question_system), ("user", answer_question_system)]
+        [("system", answer_question_system), ("user", answer_question_user)]
     )
 
 find_topics_system = """"You are the host of a podcast. You talk about the paper title {paper_title}.
