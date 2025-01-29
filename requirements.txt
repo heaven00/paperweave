@@ -16,3 +16,4 @@ transformers
 openai
 python-dotenv
 networkx
+docling
