@@ -72,3 +72,5 @@ def get_topics(model, paper_title, podcast_tech_level, paper, nb_topics):
     # Split the content into a list by commas, stripping any whitespace
     result = [item.strip() for item in content.split(',') if item.strip()]
     return result
+
+
