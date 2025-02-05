@@ -38,6 +38,7 @@ class Podcast(TypedDict):
     paper: Annotated[Paper, "paper that is discussed in the podcast"] = Paper()
     transcript: Annotated[List[Utterance], "list of utterance, i.e. what people said"] = []
     questions: Annotated[List[str], "list of question on a topic"]
+    topics: Annotated[List[str], "list of topic of the podcast"] = []
 
 class MyState(TypedDict):
     podcast: Podcast = Podcast()
