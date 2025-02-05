@@ -5,6 +5,8 @@ from typing_extensions import TypedDict
 import requests
 from bs4 import BeautifulSoup
 
+
+
 from langgraph.graph import StateGraph, START, END
 
 
@@ -12,31 +14,35 @@ from langgraph.graph import StateGraph, START, END
 
 class Paper(TypedDict):
     # The operator.add reducer fn makes this append-only
-    text: Annotated[str, "this is the string of the paper"]
-    code: Annotated[str, "this is the code of the paper(ex: 2332.2393)"]
-    title: Annotated[str, "this is the title of the paper"]
+    text: Annotated[str, "this is the string of the paper"] = ""
+    code: Annotated[str, "this is the code of the paper(ex: 2332.2393)"] = ""
+    title: Annotated[str, "this is the title of the paper"] = ""
 
 class PaperCode(TypedDict):
     # The operator.add reducer fn makes this append-only
-    code: Annotated[str, "this is the string of the paper"]
+    code: Annotated[str, "this is the string of the paper"] = ""
 
 class Persona(TypedDict):
-    name: Annotated[str, "name of the persona"]
-    personality: Annotated[str, "describe the personality of the persona"]
+    name: Annotated[str, "name of the persona"] = ""
+    personality: Annotated[str, "describe the personality of the persona"] = ""
 
 
 class Utterance(TypedDict):
-    persona: Annotated[Persona, "person who speak"]
-    speach : Annotated[str, "what the persona have said"]
+    persona: Annotated[Persona, "person who speak"] = Persona()
+    speach : Annotated[str, "what the persona have said"] = ""
 
 
 # data format
 class Podcast(TypedDict):
     # The operator.add reducer fn makes this append-only
-    paper: Annotated[Paper, "paper that is discussed in the podcast"]
-    transcript: Annotated[List[Utterance], "list of utterance, i.e. what people said"]
+    paper: Annotated[Paper, "paper that is discussed in the podcast"] = Paper()
+    transcript: Annotated[List[Utterance], "list of utterance, i.e. what people said"] = []
+    questions: Annotated[List[str], "list of question on a topic"]
 
-
+class MyState(TypedDict):
+    podcast: Podcast = Podcast()
+    index_question: int = 0
+    index_topic:int =0
 
 
 
@@ -57,10 +63,13 @@ def get_arxiv_text(arxiv_code:str):
 
 class GetPaper:
 
-    def __call__(self, paper_code:PaperCode) -> Paper:
-        text = get_arxiv_text(paper_code["code"])
-        paper = Paper(text=text, code=paper_code["code"], title= "stuff")
-        return paper
+    def __call__(self, state:MyState) -> MyState:
+        code = state["podcast"]["paper"]["code"]
+        text = get_arxiv_text(code)
+        paper = Paper(text=text, code=code, title= "stuff")
+        podcast = Podcast(paper=paper)
+        state = MyState(podcast=podcast, index_question=0, index_topic=0)
+        return state
 
 
 from paperweave.flow_elements.prompt_templates import create_questions_template
@@ -92,7 +101,15 @@ def get_questions(model, paper:Paper, topic:str, nb_questions:int, previous_topi
 
 class GetExpertUtterance:
 
-    def __call__(self, podcast:Podcast):
+    def __call__(self, state:MyState):
+        id_question = state["index_question"]
+        podcast = state["podcast"]
+        question = podcast["questions"][id_question]
+
+        podcast["transcript"].append(Utterance(persona=Persona(name="host"), speach=question))
+
+
+        podcast = state["podcast"]
         if "previous_question" not in podcast:
             podcast["previous_question"] = "no previous question"
         previous_question = podcast["previous_question"]
@@ -100,9 +117,19 @@ class GetExpertUtterance:
             podcast["previous_answer"] = "no previous answer"
         previous_answer = podcast["previous_answer"]
 
-        current_question = podcast["current_question"]
 
-        next
+        print(state["index_question"])
+        state["index_question"] = state["index_question"] + 1
+        return state
+
+
+
+def should_continue_index(index_name):
+
+    def should_continue(state: MyState) -> bool:
+        return state[index_name] < len(state["podcast"]["questions"])
+    
+    return should_continue
 
 
 
@@ -114,7 +141,8 @@ class GetQuestionsForTopic:
         self.nb_question_per_topic = 5
         self.podcast_tech_level = "expert"
 
-    def __call__(self, podcast:Podcast):
+    def __call__(self, state:MyState)->MyState:
+        podcast = state["podcast"]
         paper = podcast["paper"]
         previous_topics = []
         future_topics = ["results", "conclusion"]
@@ -123,40 +151,53 @@ class GetQuestionsForTopic:
                                   topic= topic, previous_topics=previous_topics, future_topics=future_topics,
                                   podcast_tech_level="expert")
         podcast["questions"] = questions
-        return podcast
+        state["podcast"] = podcast
+        return state
 
 
 class InitPodcast:
 
-    def __call__(self, paper:Paper):
-        podcast = Podcast(paper=paper)
-        return podcast
+    def __call__(self, state:MyState):
+
+        if "transcript" not in state["podcast"]:
+            state["podcast"]["transcript"] = []
 
 
+        return state
 
+c= Paper()
+b = ""
+a = MyState(podcast= "")
 
-builder = StateGraph(state_schema=None, input=PaperCode, output=Podcast)
+builder = StateGraph(input= MyState , output=MyState)
 builder.add_node("get_paper", GetPaper())
 builder.add_node("init_podcast", InitPodcast())
 builder.add_node("get_question", GetQuestionsForTopic())
+builder.add_node("get_utterance", GetExpertUtterance())
 builder.add_edge(START, "get_paper")
 builder.add_edge("get_paper", "init_podcast")
 builder.add_edge("init_podcast", "get_question")
-builder.add_edge("get_question", END)
+builder.add_edge("get_question", "get_utterance")
+builder.add_conditional_edges(
+    "get_utterance",
+    should_continue_index("index_question"),
+    {True: "get_utterance", False: END}
+)
+
 
 graph = builder.compile()
-
-
-print(graph.invoke({"code": "2203.11171"}))
-
-
-
-
-
-"""
-
 
 a = graph.get_graph().draw_mermaid_png()
 
 with open("image.png", 'wb') as f:
     f.write(a)
+
+
+print(graph.invoke({"podcast": {"paper":{"code":"2203.11171"}}}))
+
+
+
+
+
+
+
