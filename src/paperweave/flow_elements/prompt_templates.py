@@ -65,3 +65,26 @@ why should we care,
 find_topics_template = ChatPromptTemplate.from_messages(
         [("system", find_topics_system), ("user", find_topics_user)]
     )
+
+
+create_questions_system = """"You are the host of a podcast. You talk about the paper title {paper_title}.
+You are an expert in the field, but you still create interesting podcast. You adjust the level of technicality of the podcast to {podcast_tech_level}.
+Create a list of questions(and the order) to make an interesting podcast."""
+
+create_questions_user = """You create a list of {nb_questions} question in the order that should be present in the podcast to make it interesting.
+The question, should be for the topic of {topic}. 
+The topic discussed before the question were {previous_topics}. So try make a transition that is smooth to the new topic.
+The topics that will discussed after the question that you will generate are {future_topics}. Try to create question will make the last question to transition well to the next topic.
+The paper is :
+{paper}
+You output the list of topics in a python list. For example:
+[
+"what is new in the method",
+"what are interesting results",
+"why should we care",
+]
+"""
+
+create_questions_template = ChatPromptTemplate.from_messages(
+        [("system", create_questions_system), ("user", create_questions_user)]
+    )
