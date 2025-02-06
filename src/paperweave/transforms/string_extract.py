@@ -9,7 +9,8 @@ def extract_list(input_str:str)->List[str]:
     if not matches:
         return []
     content = matches.group(1)
-    # Split the content into a list by commas, stripping any whitespace
-    result = [item.strip().strip('"') for item in content.split(',') if item.strip().strip('"')]
+
+    items = re.split(r'"\s*,\s*"', content)
+    result = [item.strip().strip('"') for item in items if item.strip().strip('"')]
 
     return result
