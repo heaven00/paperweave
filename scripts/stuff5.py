@@ -76,8 +76,9 @@ class GetIntro:
         
         prompt = create_intro_template.invoke(variables)
         response = self.model.invoke(prompt)
-        intro = extract_list(response.content)
-        print("hhhhh",intro)
+
+        intro = response.content
+        
         podcast["transcript"].append(Utterance(persona=Persona(name="host"), speach=intro))
         state["podcast"] = podcast
 

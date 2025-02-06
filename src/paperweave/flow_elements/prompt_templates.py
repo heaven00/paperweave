@@ -105,18 +105,18 @@ host_conclusion_template = ChatPromptTemplate.from_messages(
 
 
 
-create_intro_system = """You are the host of a podcast where you and an expert discuss a paper.
+create_intro_user = """You are Jimmy, the host of a podcast where you and an expert, Mike, discuss a paper.
 You are an expert in the field, but you still create interesting podcast. You adjust the level of technicality of the podcast to {podcast_tech_level}.
 
 Create a speech as introduction for your podcast. Make it engaging. You can follow these steps:
 - Breathly introduce the paper (title and the origin of the group of people working on it) 
-- Introduce the expert who will talk with you
-- Say why the paper is important (what is the problem it tackles, why the problem matter)
+- Introduce the expert's name who will talk with you
+- Say why the paper is important in 2 sentences
 
 The paper discussed in the podcast is:
 {paper}
 
 """
 create_intro_template = ChatPromptTemplate.from_messages(
-        [("user", create_intro_system)]#, ("user", create_intro_user)]
+        [("user", create_intro_user)]
     )
