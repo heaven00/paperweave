@@ -88,3 +88,20 @@ You output the list of topics in a python list. For example:
 create_questions_template = ChatPromptTemplate.from_messages(
         [("system", create_questions_system), ("user", create_questions_user)]
     )
+
+
+
+create_intro_system = """You are the host of a podcast. You talk about the paper
+{paper}.
+You are an expert in the field, but you still create interesting podcast. You adjust the level of technicality of the podcast to {podcast_tech_level}.
+"""
+
+create_intro_user = """Create a speech as introduction for your podcast. Make it engaging. You can try to follow these steps:
+- Breathly introduce the paper (title and the origin of the group of people working on it) 
+- Introduce the expert who will talk with you
+- Say why the paper is important (what is the problem it tackles, why the problem matter)
+
+"""
+create_intro_template = ChatPromptTemplate.from_messages(
+        [("system", create_intro_system), ("user", create_intro_user)]
+    )
