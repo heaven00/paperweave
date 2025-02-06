@@ -9,6 +9,7 @@ from paperweave.data_type import MyState, Utterance, Persona, Paper, Podcast
 from paperweave.get_data import get_arxiv_text, get_paper_title
 import os
 from langchain_openai import ChatOpenAI
+from langchain_ollama import ChatOllama
 from dotenv import load_dotenv
 from pathlib import Path
 
@@ -17,8 +18,8 @@ env_file = Path(__file__).parent.parent / ".env"
 # Load the .env file
 load_dotenv(env_file)
 
-# Set your OpenAI API key
-os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_KEY")
+# Set your OpenAI API key by default it will set to empty string
+os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_KEY") or ""
 
 
 def get_questions(
@@ -63,7 +64,7 @@ class GetPaper:
 
 class GetExpertUtterance:
     def __init__(self):
-        self.model = ChatOpenAI(model="gpt-4o-mini")
+        self.model = get_chat_model()
         self.podcast_tech_level = "expert"
 
     def __call__(self, state: MyState):
@@ -104,9 +105,17 @@ class GetExpertUtterance:
         return state
 
 
+def get_chat_model() -> ChatOllama | ChatOpenAI:
+    if os.environ["OPENAI_API_KEY"]:
+        return ChatOpenAI(model="gpt-4o-mini")
+    else:
+        return ChatOllama(model="mistral-small:latest")
+
+
+
 class GetQuestionsForTopic:
     def __init__(self):
-        self.model = ChatOpenAI(model="gpt-4o-mini")
+        self.model = get_chat_model()
         self.nb_question_per_topic = 2
         self.podcast_tech_level = "expert"
 
@@ -151,7 +160,7 @@ class EndTopic:
 
 class Conclusion:
     def __init__(self):
-        self.model = ChatOpenAI(model="gpt-4o-mini")
+        self.model = get_chat_model()
         self.podcast_tech_level = "expert"
 
     def __call__(self, state: MyState) -> MyState:
@@ -179,12 +188,14 @@ def loop_list_condition(index_name: str, list_name: int) -> Callable:
 
 def build_graph():
     builder = StateGraph(input=MyState, output=MyState)
+    # define nodes
     builder.add_node("get_paper", GetPaper())
     builder.add_node("init_podcast", InitPodcast())
     builder.add_node("get_question", GetQuestionsForTopic())
     builder.add_node("get_utterance", GetExpertUtterance())
     builder.add_node("end_topic", EndTopic())
     builder.add_node("conclusion", Conclusion())
+    # define edges
     builder.add_edge(START, "get_paper")
     builder.add_edge("get_paper", "init_podcast")
     builder.add_edge("init_podcast", "get_question")
@@ -213,5 +224,5 @@ with open("image.png", "wb") as f:
     f.write(graph_as_image)
 
 
-result = graph.invoke({"podcast": {"paper": {"code": "2203.11171"}}})
+result = graph.invoke({"podcast": {"paper": {"code": "2410.10630"}}})
 print(transcript_to_full_text(result["podcast"]["transcript"]))
