@@ -2,7 +2,7 @@ from typing import Annotated, List, Callable
 
 from langgraph.graph import StateGraph, START, END
 
-from paperweave.flow_elements.prompt_templates import create_questions_template
+from paperweave.flow_elements.prompt_templates import create_questions_template,create_intro_template
 from paperweave.flow_elements.flows import create_answer, create_conclusion
 from paperweave.transforms import extract_list, transcript_to_full_text
 from paperweave.data_type import MyState, Utterance, Persona, Paper, Podcast
@@ -61,6 +61,28 @@ class GetPaper:
         state = MyState(podcast=podcast, index_question=0, index_topic=0)
         return state
 
+class GetIntro:
+
+    def __init__(self):
+        self.model = get_chat_model()  
+        self.podcast_tech_level = "expert"
+
+    def __call__(self, state:MyState)->MyState:
+        podcast = state["podcast"]
+        paper = podcast["paper"]
+        variables = {"paper_title": paper["title"], 
+                    "podcast_tech_level": self.podcast_tech_level, 
+                    "paper": paper["text"]}
+        
+        prompt = create_intro_template.invoke(variables)
+        response = self.model.invoke(prompt)
+
+        intro = response.content
+        
+        podcast["transcript"].append(Utterance(persona=Persona(name="host"), speach=intro))
+        state["podcast"] = podcast
+
+        return state
 
 class GetExpertUtterance:
     def __init__(self):
@@ -187,10 +209,11 @@ def loop_list_condition(index_name: str, list_name: int) -> Callable:
 
 
 def build_graph():
-    builder = StateGraph(input=MyState, output=MyState)
+    builder = StateGraph(MyState,input=MyState, output=MyState)
     # define nodes
     builder.add_node("get_paper", GetPaper())
     builder.add_node("init_podcast", InitPodcast())
+    builder.add_node("intro_podcast", GetIntro())
     builder.add_node("get_question", GetQuestionsForTopic())
     builder.add_node("get_utterance", GetExpertUtterance())
     builder.add_node("end_topic", EndTopic())
@@ -198,7 +221,8 @@ def build_graph():
     # define edges
     builder.add_edge(START, "get_paper")
     builder.add_edge("get_paper", "init_podcast")
-    builder.add_edge("init_podcast", "get_question")
+    builder.add_edge("init_podcast", "intro_podcast")
+    builder.add_edge("intro_podcast", "get_question")
     builder.add_edge("get_question", "get_utterance")
     builder.add_conditional_edges(
         "get_utterance",
