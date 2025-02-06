@@ -10,7 +10,7 @@
 import os, io
 import PyPDF2
 # from langchain_openai import ChatOpenAI
-# from dotenv import load_dotenv
+from dotenv import load_dotenv
 # from pathlib import Path
 import openai
 from langchain_openai import ChatOpenAI
@@ -24,13 +24,13 @@ from pypdf import PdfReader
 # # env_file = Path(__file__).parent.parent/ ".env"
 
 # # Load the .env file
-# load_dotenv(env_file)
+#load_dotenv(env_file)
 
 # Set your OpenAI API key
 #openai.api_key = os.environ.get("OPENAI_API_KEY")
 
 model = ChatOpenAI(
-    api_key = os.getenv("OPENAI_API_KEY"),
+    api_key = os.environ.get("OPENAI_API_KEY"),
     model="gpt-4o",
     max_tokens=1024,
     temperature=1,
@@ -38,7 +38,7 @@ model = ChatOpenAI(
 
 OPENAI_SYSTEM_MESSAGE_CHATGPT = (
     "You are an expert in Machine Learning\n"
-    + "You can extract a list of topics from any text format\n"
+    + "You can extract a list of sections for podcast from any text\n"
     + "You will select no more than top 10 topics and present them in a list."
 )
 
