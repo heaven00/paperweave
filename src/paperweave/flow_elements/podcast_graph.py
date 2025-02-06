@@ -1,4 +1,4 @@
-# define the graph 
+# define the graph
 from enum import Enum
 from langgraph.graph import StateGraph, START, END
 from typing import TypedDict
@@ -16,8 +16,8 @@ class InputState(TypedDict):
 
 
 class PodcastNotes(TypedDict):
-    """State object to store every thing required to generate the podcast
-    """
+    """State object to store every thing required to generate the podcast"""
+
     content: str
     speech_text: str
     topics: list[str]
@@ -25,21 +25,20 @@ class PodcastNotes(TypedDict):
 
 
 class OutputState(TypedDict):
-    """The output transcipt (the final output)
-    """
+    """The output transcipt (the final output)"""
+
     transcript: list[dict[Speakers, str]]
 
 
 def arxiv_url_to_markdown(state: InputState) -> PodcastNotes:
-    """Convert arxiv url to markdown text for downstream llms    
-    """
+    """Convert arxiv url to markdown text for downstream llms"""
     converter = DocumentConverter()
     return {"content": converter.convert(state["url"])}
 
 
-def generate_podcast_generation_graph() -> "CompiledStateGraph": # type: ignore
+def generate_podcast_generation_graph() -> "CompiledStateGraph":  # type: ignore
     builder = StateGraph(PodcastNotes, input=InputState, output=OutputState)
-    
+
     # add nodes/ python functions to transition to
     builder.add_node(arxiv_url_to_markdown)
 
@@ -49,11 +48,13 @@ def generate_podcast_generation_graph() -> "CompiledStateGraph": # type: ignore
     return builder.compile()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # generate the graph and print out the image
     graph = generate_podcast_generation_graph()
-    
+
     with open("podcast_graph.png", "wb") as img_file:
-        img_file.write(graph.get_graph().draw_mermaid_png(
-            draw_method=MermaidDrawMethod.API,
-        ))
+        img_file.write(
+            graph.get_graph().draw_mermaid_png(
+                draw_method=MermaidDrawMethod.API,
+            )
+        )

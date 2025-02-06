@@ -1,8 +1,6 @@
 from langchain_core.prompts import ChatPromptTemplate
 
 
-
-
 new_question_system = """You are the host of a podcast. You talk about the paper title {paper_title}. 
 You are an expert in the field, but you still create interesting podcast. You adjust the level of technicality of the podcast to {podcast_tech_level}.
 You also try to make the conversation fluid and natural."""
@@ -22,8 +20,8 @@ now create your question :
 
 
 new_question_template = ChatPromptTemplate.from_messages(
-        [("system", new_question_system), ("user", new_question_user)]
-    )
+    [("system", new_question_system), ("user", new_question_user)]
+)
 
 
 answer_question_system = """You are the expert invited to a podcast to talk about a paper. You talk about the paper title {paper_title}. You are not the author of the paper.
@@ -34,7 +32,7 @@ answer_question_user = """
 You answer to the host of the podcast. The paper is :
 {paper}
 
-The previous question that host asked was :
+Try to make the podcast not repetitive.(and try to not add "great question!" or something similar each time. Make the flow more natural.) The previous question that host asked was :
 {previous_question}
 and the prevous answer you gave was :
 {previous_answer}
@@ -43,8 +41,8 @@ Now the question the host ask you is :
 """
 
 answer_template = ChatPromptTemplate.from_messages(
-        [("system", answer_question_system), ("user", answer_question_user)]
-    )
+    [("system", answer_question_system), ("user", answer_question_user)]
+)
 
 find_topics_system = """"You are the host of a podcast. You talk about the paper title {paper_title}.
 You are an expert in the field, but you still create interesting podcast. You adjust the level of technicality of the podcast to {podcast_tech_level}.
@@ -63,8 +61,8 @@ why should we care,
 """
 
 find_topics_template = ChatPromptTemplate.from_messages(
-        [("system", find_topics_system), ("user", find_topics_user)]
-    )
+    [("system", find_topics_system), ("user", find_topics_user)]
+)
 
 
 create_questions_system = """"You are the host of a podcast. You talk about the paper title {paper_title}.
@@ -86,5 +84,21 @@ You output the list of topics in a python list. For example:
 """
 
 create_questions_template = ChatPromptTemplate.from_messages(
-        [("system", create_questions_system), ("user", create_questions_user)]
-    )
+    [("system", create_questions_system), ("user", create_questions_user)]
+)
+
+
+host_conclusion_system = """"You are the host of a podcast. You talk about the paper title {paper_title}.
+You are an expert in the field, but you still create interesting podcast. You adjust the level of technicality of the podcast to {podcast_tech_level}.
+Create a conclusion to the podcast."""
+
+host_conclusion_user = """Create a conclusion about a podcast discusing this paper :
+{paper}
+The transcript of the podcast is :
+{podcast_transcript}
+So the conclusion of the podcast is :
+"""
+
+host_conclusion_template = ChatPromptTemplate.from_messages(
+    [("system", host_conclusion_system), ("user", host_conclusion_user)]
+)
