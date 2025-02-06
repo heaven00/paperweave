@@ -2,7 +2,7 @@ from typing import Annotated, List, Callable
 
 from langgraph.graph import StateGraph, START, END
 
-from paperweave.flow_elements.prompt_templates import create_questions_template
+from paperweave.flow_elements.prompt_templates import create_questions_template,create_intro_template
 from paperweave.flow_elements.flows import create_answer, create_conclusion
 from paperweave.transforms import extract_list, transcript_to_full_text
 from paperweave.data_type import MyState, Utterance, Persona, Paper, Podcast
@@ -64,7 +64,7 @@ class GetPaper:
 class GetIntro:
 
     def __init__(self):
-        self.model = ChatOpenAI(model="gpt-4o-mini")
+        self.model = get_chat_model()  
         self.podcast_tech_level = "expert"
 
     def __call__(self, state:MyState)->MyState:
@@ -77,7 +77,7 @@ class GetIntro:
         prompt = create_intro_template.invoke(variables)
         response = self.model.invoke(prompt)
         intro = extract_list(response.content)
-
+        print("hhhhh",intro)
         podcast["transcript"].append(Utterance(persona=Persona(name="host"), speach=intro))
         state["podcast"] = podcast
 
@@ -208,7 +208,7 @@ def loop_list_condition(index_name: str, list_name: int) -> Callable:
 
 
 def build_graph():
-    builder = StateGraph(input=MyState, output=MyState)
+    builder = StateGraph(MyState,input=MyState, output=MyState)
     # define nodes
     builder.add_node("get_paper", GetPaper())
     builder.add_node("init_podcast", InitPodcast())
