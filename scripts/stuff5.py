@@ -93,7 +93,7 @@ class GetIntro:
 
 
 class GetTopics:
-    def __init__(self, nb_topic=10, podcast_tech_level="expert"):
+    def __init__(self, nb_topic=2, podcast_tech_level="expert"):
         self.nb_topic = nb_topic
         self.podcast_tech_level = podcast_tech_level
         self.model = get_chat_model()
@@ -195,8 +195,6 @@ class InitPodcast:
         if "transcript" not in state["podcast"]:
             state["podcast"]["transcript"] = []
 
-        state["topics"] = ["soliton", "results", "conclusion"]
-
         return state
 
 
@@ -282,6 +280,7 @@ for article in list_articles:
         f.write(graph_as_image)
 
     result = graph.invoke({"podcast": {"paper": {"code": article}}})
+    print(result)
     result = transcript_to_full_text(result["podcast"]["transcript"])
     print(result)
 
