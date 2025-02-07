@@ -240,13 +240,28 @@ def build_graph():
 
     return graph
 
+############################################################################################
 
-graph = build_graph()
+list_articles = ["1706.03762v7","1810.04805v2","2404.19756v4","2410.10630v1","2411.17703v1"]
+for article in list_articles:
+    graph = build_graph()
+    graph_as_image = graph.get_graph().draw_mermaid_png()
+    with open("image.png", "wb") as f:
+        f.write(graph_as_image)
 
-graph_as_image = graph.get_graph().draw_mermaid_png()
-with open("image.png", "wb") as f:
-    f.write(graph_as_image)
+    result = graph.invoke({"podcast": {"paper": {"code": article}}})
+    result = transcript_to_full_text(result["podcast"]["transcript"])
+    print(result)
 
-
-result = graph.invoke({"podcast": {"paper": {"code": "2410.10630"}}})
-print(transcript_to_full_text(result["podcast"]["transcript"]))
+    folder_transcripts = 'data/transcripts'
+    transcripts_files = []
+    for entry in os.scandir(folder_transcripts):
+        if entry.name.startswith('transcript_%s'%article):
+            transcripts_files.append(entry.name)
+    if len(transcripts_files) > 0:
+        transcripts_files.sort()
+        num = transcripts_files[-1].split(".")[1]+1
+    else: num = 0
+    f_name = "%s/transcript_%s.%d.txt"%(folder_transcripts,article,num)
+    with open(f_name, "a") as f:
+        f.write(result)
