@@ -7,6 +7,7 @@ from paperweave.flow_elements.prompt_templates import (
     find_topics_template,
     host_conclusion_template,
 )
+from paperweave.transforms import extract_list
 
 
 def get_arxiv_text(arxiv_code: str):
@@ -145,11 +146,5 @@ def get_topics(model, paper_title, podcast_tech_level, paper, nb_topics):
     # Get the model's response
     response = model.invoke(prompt)
 
-    regex = r"\[\s*(.*?)\s*\]"
-    matches = re.search(regex, response.content, re.DOTALL)
-    if not matches:
-        return []
-    content = matches.group(1)
-    # Split the content into a list by commas, stripping any whitespace
-    result = [item.strip() for item in content.split(",") if item.strip()]
+    result = extract_list(response.content)
     return result

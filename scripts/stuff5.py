@@ -2,8 +2,11 @@ from typing import Annotated, List, Callable
 
 from langgraph.graph import StateGraph, START, END
 
-from paperweave.flow_elements.prompt_templates import create_questions_template,create_intro_template
-from paperweave.flow_elements.flows import create_answer, create_conclusion
+from paperweave.flow_elements.prompt_templates import (
+    create_questions_template,
+    create_intro_template,
+)
+from paperweave.flow_elements.flows import create_answer, create_conclusion, get_topics
 from paperweave.transforms import extract_list, transcript_to_full_text
 from paperweave.data_type import MyState, Utterance, Persona, Paper, Podcast
 from paperweave.get_data import get_arxiv_text, get_paper_title
@@ -61,35 +64,60 @@ class GetPaper:
         state = MyState(podcast=podcast, index_question=0, index_topic=0)
         return state
 
-class GetIntro:
 
+class GetIntro:
     def __init__(self):
-        self.model = get_chat_model()  
+        self.model = get_chat_model()
         self.podcast_tech_level = "expert"
 
-    def __call__(self, state:MyState)->MyState:
+    def __call__(self, state: MyState) -> MyState:
         podcast = state["podcast"]
         paper = podcast["paper"]
-        variables = {"paper_title": paper["title"], 
-                    "podcast_tech_level": self.podcast_tech_level, 
-                    "paper": paper["text"]}
-        
+        variables = {
+            "paper_title": paper["title"],
+            "podcast_tech_level": self.podcast_tech_level,
+            "paper": paper["text"],
+        }
+
         prompt = create_intro_template.invoke(variables)
         response = self.model.invoke(prompt)
 
         intro = response.content
-        
-        podcast["transcript"].append(Utterance(persona=Persona(name="host"), speach=intro))
+
+        podcast["transcript"].append(
+            Utterance(persona=Persona(name="host"), speach=intro)
+        )
         state["podcast"] = podcast
 
         return state
+
+
+class GetTopics:
+    def __init__(self, nb_topic=10, podcast_tech_level="expert"):
+        self.nb_topic = nb_topic
+        self.podcast_tech_level = podcast_tech_level
+        self.model = get_chat_model()
+
+    def __call__(self, state: MyState) -> MyState:
+        podcast = state["podcast"]
+        paper = podcast["paper"]
+        topics = get_topics(
+            model=self.model,
+            paper_title=paper["title"],
+            podcast_tech_level=self.podcast_tech_level,
+            paper=paper["text"],
+            nb_topics=self.nb_topic,
+        )
+        state["topics"] = topics
+        return state
+
 
 class GetExpertUtterance:
     def __init__(self):
         self.model = get_chat_model()
         self.podcast_tech_level = "expert"
 
-    def __call__(self, state: MyState):
+    def __call__(self, state: MyState) -> MyState:
         id_question = state["index_question"]
         podcast = state["podcast"]
         question = state["questions"][id_question]
@@ -134,12 +162,11 @@ def get_chat_model() -> ChatOllama | ChatOpenAI:
         return ChatOllama(model="mistral-small:latest")
 
 
-
 class GetQuestionsForTopic:
-    def __init__(self):
+    def __init__(self, nb_question_per_topic=2, podcast_tech_level="expert"):
         self.model = get_chat_model()
-        self.nb_question_per_topic = 2
-        self.podcast_tech_level = "expert"
+        self.nb_question_per_topic = nb_question_per_topic
+        self.podcast_tech_level = podcast_tech_level
 
     def __call__(self, state: MyState) -> MyState:
         podcast = state["podcast"]
@@ -209,11 +236,12 @@ def loop_list_condition(index_name: str, list_name: int) -> Callable:
 
 
 def build_graph():
-    builder = StateGraph(MyState,input=MyState, output=MyState)
+    builder = StateGraph(MyState, input=MyState, output=MyState)
     # define nodes
     builder.add_node("get_paper", GetPaper())
     builder.add_node("init_podcast", InitPodcast())
     builder.add_node("intro_podcast", GetIntro())
+    builder.add_node("get_topics", GetTopics())
     builder.add_node("get_question", GetQuestionsForTopic())
     builder.add_node("get_utterance", GetExpertUtterance())
     builder.add_node("end_topic", EndTopic())
@@ -222,7 +250,8 @@ def build_graph():
     builder.add_edge(START, "get_paper")
     builder.add_edge("get_paper", "init_podcast")
     builder.add_edge("init_podcast", "intro_podcast")
-    builder.add_edge("intro_podcast", "get_question")
+    builder.add_edge("intro_podcast", "get_topics")
+    builder.add_edge("get_topics", "get_question")
     builder.add_edge("get_question", "get_utterance")
     builder.add_conditional_edges(
         "get_utterance",
@@ -240,9 +269,12 @@ def build_graph():
 
     return graph
 
+
 ############################################################################################
 
-list_articles = ["1706.03762v7"] #,"1810.04805v2","2404.19756v4","2410.10630v1","2411.17703v1"]
+list_articles = [
+    "1706.03762v7"
+]  # ,"1810.04805v2","2404.19756v4","2410.10630v1","2411.17703v1"]
 for article in list_articles:
     graph = build_graph()
     graph_as_image = graph.get_graph().draw_mermaid_png()
@@ -253,15 +285,16 @@ for article in list_articles:
     result = transcript_to_full_text(result["podcast"]["transcript"])
     print(result)
 
-    folder_transcripts = 'data/transcripts'
+    folder_transcripts = "data/transcripts"
     transcripts_files = []
     for entry in os.scandir(folder_transcripts):
-        if entry.name.startswith('transcript_%s'%article):
+        if entry.name.startswith("transcript_%s" % article):
             transcripts_files.append(entry.name)
     if len(transcripts_files) > 0:
         transcripts_files.sort()
-        num = int(transcripts_files[-1].split(".")[-2])+1
-    else: num = 0
-    f_name = "%s/transcript_%s.%d.txt"%(folder_transcripts,article,num)
+        num = int(transcripts_files[-1].split(".")[-2]) + 1
+    else:
+        num = 0
+    f_name = "%s/transcript_%s.%d.txt" % (folder_transcripts, article, num)
     with open(f_name, "a") as f:
         f.write(result)

@@ -46,17 +46,19 @@ answer_template = ChatPromptTemplate.from_messages(
 
 find_topics_system = """"You are the host of a podcast. You talk about the paper title {paper_title}.
 You are an expert in the field, but you still create interesting podcast. You adjust the level of technicality of the podcast to {podcast_tech_level}.
-Create a list of topics(and the order) to make an interesting podcast."""
+Create a list of sections in the podcast to make an interesting podcast."""
 
-find_topics_user = """You create a list of {nb_topics} topics in the order that should be present in the podcast to make it interesting.
+find_topics_user = """You create a list of {nb_topics} sections of the podcast to make it interesting. 
+DO NOT FOLLOW THE STRUCTURE OF THE PAPER. MAKE IT THE STRUCTURE OF AN INTERESTING PODCAST!
 The paper is :
 {paper}
-You output the list of topics in a python list. For example:
+You output the list of sections in a python list. For example:
 [
-context the paper appear,
-what is new in the method,
-what are interesting results,
-why should we care,
+"the problem the paper try to address",
+"the Big Idea",
+"The Science Behind It",
+"the impact of the paper",
+"Takeaways: TL;DR",
 ]
 """
 
