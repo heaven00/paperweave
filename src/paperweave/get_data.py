@@ -34,7 +34,7 @@ def get_paper_authors(arxiv_id: str) -> str:
 
 
 def get_arxiv_text(arxiv_code: str) -> str:
-    url = f"https://arxiv.org/html/{arxiv_code}v1"
+    url = f"https://arxiv.org/html/{arxiv_code}"
 
     response = requests.get(url)
     soup = BeautifulSoup(response.content, "html.parser")
