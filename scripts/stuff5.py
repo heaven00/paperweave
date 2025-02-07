@@ -77,6 +77,8 @@ class GetIntro:
             "paper_title": paper["title"],
             "podcast_tech_level": self.podcast_tech_level,
             "paper": paper["text"],
+            "host_name": podcast["host"]["name"],
+            "expert_name":podcast["expert"]["name"]
         }
 
         prompt = create_intro_template.invoke(variables)
@@ -85,7 +87,7 @@ class GetIntro:
         intro = response.content
 
         podcast["transcript"].append(
-            Utterance(persona=Persona(name="host"), speach=intro)
+            Utterance(persona=podcast["host"], speach=intro)
         )
         state["podcast"] = podcast
 
@@ -130,7 +132,7 @@ class GetExpertUtterance:
                 previous_question = podcast["transcript"][-2]["speach"]
 
         podcast["transcript"].append(
-            Utterance(persona=Persona(name="host"), speach=question)
+            Utterance(persona=podcast["host"], speach=question)
         )
 
         paper_title = podcast["paper"]["title"]
@@ -147,7 +149,7 @@ class GetExpertUtterance:
         )
 
         podcast["transcript"].append(
-            Utterance(persona=Persona(name="expert"), speach=answer)
+            Utterance(persona=podcast["expert"], speach=answer)
         )
 
         print(state["index_question"])
@@ -195,6 +197,9 @@ class InitPodcast:
         if "transcript" not in state["podcast"]:
             state["podcast"]["transcript"] = []
 
+        state["podcast"]["host"] = Persona(name="Jimmy")
+        state["podcast"]["expert"] = Persona(name="Mike")
+
         return state
 
 
@@ -211,6 +216,7 @@ class Conclusion:
         self.podcast_tech_level = "expert"
 
     def __call__(self, state: MyState) -> MyState:
+        podcast = state["podcast"]
         paper_title = state["podcast"]["paper"]["title"]
         paper_text = state["podcast"]["paper"]["text"]
         transcript = transcript_to_full_text(state["podcast"]["transcript"])
@@ -222,7 +228,7 @@ class Conclusion:
             podcast_transcript=transcript,
         )
         state["podcast"]["transcript"].append(
-            Utterance(persona=Persona(name="host"), speach=conclusion_text)
+            Utterance(persona=podcast["host"], speach=conclusion_text)
         )
 
 
@@ -284,7 +290,8 @@ for article in list_articles:
     result = transcript_to_full_text(result["podcast"]["transcript"])
     print(result)
 
-    folder_transcripts = "data/transcripts"
+    folder_transcripts = str(Path(__file__).parent.parent / "data" / "transcripts")
+
     transcripts_files = []
     for entry in os.scandir(folder_transcripts):
         if entry.name.startswith("transcript_%s" % article):

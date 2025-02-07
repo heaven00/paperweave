@@ -31,6 +31,8 @@ class Podcast(TypedDict):
     transcript: Annotated[
         List[Utterance], "list of utterance, i.e. what people said"
     ] = []
+    host: Annotated[Persona, "host of the podcast"]
+    expert: Annotated[Persona, "expert who speak in the podcast"]
 
 
 
