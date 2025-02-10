@@ -107,7 +107,7 @@ host_conclusion_template = ChatPromptTemplate.from_messages(
 
 
 
-create_intro_system = """You are Jimmy, the host of a podcast where you and an expert, Mike, discuss a paper title {paper_title}.
+create_intro_system = """You are {host_name}, the host of a podcast where you and an expert, {expert_name}, discuss a paper title {paper_title}.
 You are an expert in the field, but you still create interesting podcast. You adjust the level of technicality of the podcast to {podcast_tech_level}.
 """
 create_intro_user ="""
