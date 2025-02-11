@@ -285,8 +285,8 @@ list_articles = [
    # "2411.17703v1"
     "1706.03762v7"
 ]  # ,"1810.04805v2","2404.19756v4","2410.10630v1","2411.17703v1"]
-nb_topic = 5
-begin_nb_question_per_topic=1
+nb_topic = 3
+begin_nb_question_per_topic=2
 podcast_level = "expert"
 for article in list_articles:
 
@@ -309,22 +309,23 @@ for article in list_articles:
     json_data = json.dumps(result, indent=4)  # indent for pretty printing, optional
 
     # Save JSON string to a file
-    with open('../data/pipeline_output/data.json', 'w') as json_file:
-        json_file.write(json_data)
-    result = transcript_to_full_text(result["podcast"]["transcript"])
-    print(result)
-
-    folder_transcripts = str(Path(__file__).parent.parent / "data" / "transcripts")
-
-    transcripts_files = []
-    for entry in os.scandir(folder_transcripts):
-        if entry.name.startswith("transcript_%s" % article):
-            transcripts_files.append(entry.name)
-    if len(transcripts_files) > 0:
-        transcripts_files.sort()
-        num = int(transcripts_files[-1].split(".")[-2]) + 1
+    folder_json = str(Path(__file__).parent.parent / "data" / "pipeline_output")
+    json_files = []
+    for entry in os.scandir(folder_json):
+        if entry.name.startswith("%s" % article):
+            json_files.append(entry.name)
+    if len(json_files) > 0:
+        json_files.sort()
+        num = int(json_files[-1].split(".")[-2]) + 1
     else:
         num = 0
+    with open('%s/%s.%d.json'% (folder_json, article, num), 'w') as json_file:
+        json_file.write(json_data)
+    
+    # Save txt file with readable trascript
+    result = transcript_to_full_text(result["podcast"]["transcript"])
+    print(result)
+    folder_transcripts = str(Path(__file__).parent.parent / "data" / "transcripts")
     f_name = "%s/transcript_%s.%d.txt" % (folder_transcripts, article, num)
     with open(f_name, "a") as f:
         f.write(result)
