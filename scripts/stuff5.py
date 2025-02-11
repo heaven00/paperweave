@@ -50,6 +50,7 @@ def get_questions(
     # Get the model's response
     response = model.invoke(prompt)
     questions = extract_list(response.content)
+    print('questions',questions)
     return questions
 
 
@@ -95,7 +96,7 @@ class GetIntro:
 
 
 class GetTopics:
-    def __init__(self, nb_topic=2, podcast_tech_level="expert"):
+    def __init__(self, nb_topic=4, podcast_tech_level="expert"):
         self.nb_topic = nb_topic
         self.podcast_tech_level = podcast_tech_level
         self.model = get_chat_model()
@@ -152,7 +153,7 @@ class GetExpertUtterance:
             Utterance(persona=podcast["expert"], speach=answer)
         )
 
-        print(state["index_question"])
+        print('index question',state["index_question"])
         state["index_question"] = state["index_question"] + 1
         return state
 
@@ -165,7 +166,7 @@ def get_chat_model() -> ChatOllama | ChatOpenAI:
 
 
 class GetQuestionsForTopic:
-    def __init__(self, nb_question_per_topic=2, podcast_tech_level="expert"):
+    def __init__(self, nb_question_per_topic=1, podcast_tech_level="expert"):
         self.model = get_chat_model()
         self.nb_question_per_topic = nb_question_per_topic
         self.podcast_tech_level = podcast_tech_level
@@ -277,9 +278,8 @@ def build_graph():
 ############################################################################################
 
 list_articles = [
-   # "2411.17703v1"
-    "1706.03762v7"
-]  # ,"1810.04805v2","2404.19756v4","2410.10630v1","2411.17703v1"]
+    "2407.14937v1"
+]  # "1706.03762v7","1810.04805v2","2404.19756v4","2410.10630v1","2411.17703v1"]
 for article in list_articles:
     graph = build_graph()
     graph_as_image = graph.get_graph().draw_mermaid_png()
