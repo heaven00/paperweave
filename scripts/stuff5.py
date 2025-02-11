@@ -1,4 +1,5 @@
 from typing import Annotated, List, Callable
+import json
 
 from langgraph.graph import StateGraph, START, END
 
@@ -8,7 +9,7 @@ from paperweave.flow_elements.prompt_templates import (
 )
 from paperweave.flow_elements.flows import create_answer, create_conclusion, get_topics
 from paperweave.transforms import extract_list, transcript_to_full_text
-from paperweave.data_type import MyState, Utterance, Persona, Paper, Podcast
+from paperweave.data_type import MyState, Utterance, Persona, Paper, Podcast, Topic
 from paperweave.get_data import get_arxiv_text, get_paper_title
 import os
 from langchain_openai import ChatOpenAI
@@ -67,9 +68,9 @@ class GetPaper:
 
 
 class GetIntro:
-    def __init__(self):
+    def __init__(self, podcast_level="expert"):
         self.model = get_chat_model()
-        self.podcast_tech_level = "expert"
+        self.podcast_tech_level = podcast_level
 
     def __call__(self, state: MyState) -> MyState:
         podcast = state["podcast"]
@@ -96,7 +97,7 @@ class GetIntro:
 
 
 class GetTopics:
-    def __init__(self, nb_topic=4, podcast_tech_level="expert"):
+    def __init__(self, nb_topic=5, podcast_tech_level="expert"):
         self.nb_topic = nb_topic
         self.podcast_tech_level = podcast_tech_level
         self.model = get_chat_model()
@@ -112,13 +113,14 @@ class GetTopics:
             nb_topics=self.nb_topic,
         )
         state["topics"] = topics
+        state["podcast"]
         return state
 
 
 class GetExpertUtterance:
-    def __init__(self):
+    def __init__(self, podcast_tech_level:str ="expert"):
         self.model = get_chat_model()
-        self.podcast_tech_level = "expert"
+        self.podcast_tech_level = podcast_tech_level
 
     def __call__(self, state: MyState) -> MyState:
         id_question = state["index_question"]
@@ -189,7 +191,8 @@ class GetQuestionsForTopic:
             podcast_tech_level="expert",
         )
         state["questions"] = questions
-        state["podcast"] = podcast
+        topic = Topic(topic_string=topic, topic_starting_questions =questions)
+        state["podcast"]["topics"].append(topic)
         return state
 
 
@@ -197,6 +200,8 @@ class InitPodcast:
     def __call__(self, state: MyState):
         if "transcript" not in state["podcast"]:
             state["podcast"]["transcript"] = []
+        if "topics" not in state["podcast"]:
+            state["podcast"]["topics"]=[]
 
         state["podcast"]["host"] = Persona(name="Jimmy")
         state["podcast"]["expert"] = Persona(name="Mike")
@@ -212,9 +217,9 @@ class EndTopic:
 
 
 class Conclusion:
-    def __init__(self):
+    def __init__(self, podcast_tech_level:str="expert"):
         self.model = get_chat_model()
-        self.podcast_tech_level = "expert"
+        self.podcast_tech_level = podcast_tech_level
 
     def __call__(self, state: MyState) -> MyState:
         podcast = state["podcast"]
@@ -240,17 +245,17 @@ def loop_list_condition(index_name: str, list_name: int) -> Callable:
     return should_continue
 
 
-def build_graph():
+def build_graph(nb_topic:int=2, begin_nb_question_per_topic:int=2, podcast_level:str="expert"):
     builder = StateGraph(MyState, input=MyState, output=MyState)
     # define nodes
     builder.add_node("get_paper", GetPaper())
     builder.add_node("init_podcast", InitPodcast())
-    builder.add_node("intro_podcast", GetIntro())
-    builder.add_node("get_topics", GetTopics())
-    builder.add_node("get_question", GetQuestionsForTopic())
-    builder.add_node("get_utterance", GetExpertUtterance())
+    builder.add_node("intro_podcast", GetIntro(podcast_level=podcast_level))
+    builder.add_node("get_topics", GetTopics(nb_topic=nb_topic, podcast_tech_level=podcast_level))
+    builder.add_node("get_question", GetQuestionsForTopic( nb_question_per_topic=begin_nb_question_per_topic, podcast_tech_level=podcast_level))
+    builder.add_node("get_utterance", GetExpertUtterance(podcast_tech_level=podcast_level))
     builder.add_node("end_topic", EndTopic())
-    builder.add_node("conclusion", Conclusion())
+    builder.add_node("conclusion", Conclusion(podcast_tech_level=podcast_level))
     # define edges
     builder.add_edge(START, "get_paper")
     builder.add_edge("get_paper", "init_podcast")
@@ -278,30 +283,50 @@ def build_graph():
 ############################################################################################
 
 list_articles = [
-    "2407.14937v1"
-]  # "1706.03762v7","1810.04805v2","2404.19756v4","2410.10630v1","2411.17703v1"]
+   # "2411.17703v1"
+    "1706.03762v7"
+]  # ,"1810.04805v2","2404.19756v4","2410.10630v1","2411.17703v1"]
+nb_topic = 3
+begin_nb_question_per_topic=2
+podcast_level = "expert"
 for article in list_articles:
-    graph = build_graph()
+
+    input = {"article_code":article,
+             "nb_topic":nb_topic,
+             "begin_nb_question_per_topic":begin_nb_question_per_topic,
+             "podcast_level":podcast_level
+             }
+    graph = build_graph(nb_topic=nb_topic,
+             begin_nb_question_per_topic=begin_nb_question_per_topic,
+             podcast_level=podcast_level)
     graph_as_image = graph.get_graph().draw_mermaid_png()
     with open("image.png", "wb") as f:
         f.write(graph_as_image)
 
-    result = graph.invoke({"podcast": {"paper": {"code": article}}})
-    print(result)
-    result = transcript_to_full_text(result["podcast"]["transcript"])
+    result = graph.invoke({"podcast": {"paper": {"code": article}}}, {"recursion_limit": 100})
+    result["input"]=input
     print(result)
 
-    folder_transcripts = str(Path(__file__).parent.parent / "data" / "transcripts")
+    json_data = json.dumps(result, indent=4)  # indent for pretty printing, optional
 
-    transcripts_files = []
-    for entry in os.scandir(folder_transcripts):
-        if entry.name.startswith("transcript_%s" % article):
-            transcripts_files.append(entry.name)
-    if len(transcripts_files) > 0:
-        transcripts_files.sort()
-        num = int(transcripts_files[-1].split(".")[-2]) + 1
+    # Save JSON string to a file
+    folder_json = str(Path(__file__).parent.parent / "data" / "pipeline_output")
+    json_files = []
+    for entry in os.scandir(folder_json):
+        if entry.name.startswith("%s" % article):
+            json_files.append(entry.name)
+    if len(json_files) > 0:
+        json_files.sort()
+        num = int(json_files[-1].split(".")[-2]) + 1
     else:
         num = 0
+    with open('%s/%s.%d.json'% (folder_json, article, num), 'w') as json_file:
+        json_file.write(json_data)
+    
+    # Save txt file with readable trascript
+    result = transcript_to_full_text(result["podcast"]["transcript"])
+    print(result)
+    folder_transcripts = str(Path(__file__).parent.parent / "data" / "transcripts")
     f_name = "%s/transcript_%s.%d.txt" % (folder_transcripts, article, num)
     with open(f_name, "a") as f:
         f.write(result)

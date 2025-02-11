@@ -5,6 +5,7 @@ __pycache__/
 *.pyc
 
 /data/transcripts
+/data/pipeline_output
 
 # C extensions
 *.so

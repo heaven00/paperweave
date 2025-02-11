@@ -24,6 +24,11 @@ class Utterance(TypedDict):
     speach: Annotated[str, "what the persona have said"] = ""
 
 
+class Topic(TypedDict):
+    topic_string: Annotated[str, "description of the topic"]
+    topic_starting_questions : Annotated[List[str], "list of the question at the begining for the topic"]
+
+
 # data format
 class Podcast(TypedDict):
     # The operator.add reducer fn makes this append-only
@@ -33,6 +38,7 @@ class Podcast(TypedDict):
     ] = []
     host: Annotated[Persona, "host of the podcast"]
     expert: Annotated[Persona, "expert who speak in the podcast"]
+    topics: Annotated[List[Topic], "list of topic to talk during the podcast"]
 
 
 
