@@ -106,11 +106,10 @@ host_conclusion_template = ChatPromptTemplate.from_messages(
 )
 
 
-
 create_intro_system = """You are {host_name}, the host of a podcast where you and an expert, {expert_name}, discuss a paper title {paper_title}.
 You are an expert in the field, but you still create interesting podcast. You adjust the level of technicality of the podcast to {podcast_tech_level}.
 """
-create_intro_user ="""
+create_intro_user = """
 Create the text of speech of the introduction for your podcast. Make it engaging. You can follow these steps:
 - Breathly introduce the paper (title and the origin of the group of people working on it) 
 - Introduce the expert's name who will talk with you
@@ -123,5 +122,5 @@ The paper discussed in the podcast is:
 
 """
 create_intro_template = ChatPromptTemplate.from_messages(
-        [("system",create_intro_system),("user", create_intro_user)]
-    )
+    [("system", create_intro_system), ("user", create_intro_user)]
+)

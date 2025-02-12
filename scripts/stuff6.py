@@ -9,8 +9,10 @@
 # from paperweave.get_data import get_arxiv_text, get_paper_title
 import os, io
 import PyPDF2
+
 # from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
+
 # from pathlib import Path
 import openai
 from langchain_openai import ChatOpenAI
@@ -18,19 +20,18 @@ from langchain_core.prompts import ChatPromptTemplate
 import requests
 
 
-
 from pypdf import PdfReader
 
 # # env_file = Path(__file__).parent.parent/ ".env"
 
 # # Load the .env file
-#load_dotenv(env_file)
+# load_dotenv(env_file)
 
 # Set your OpenAI API key
-#openai.api_key = os.environ.get("OPENAI_API_KEY")
+# openai.api_key = os.environ.get("OPENAI_API_KEY")
 
 model = ChatOpenAI(
-    api_key = os.environ.get("OPENAI_API_KEY"),
+    api_key=os.environ.get("OPENAI_API_KEY"),
     model="gpt-4o",
     max_tokens=1024,
     temperature=1,
@@ -60,21 +61,24 @@ def pdf2text(webaddress):
 
 
 def getTopics(text_list):
-    direct_prompt = ChatPromptTemplate.from_messages([
-        ("system", OPENAI_SYSTEM_MESSAGE_CHATGPT),
-        ("human", """
+    direct_prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", OPENAI_SYSTEM_MESSAGE_CHATGPT),
+            (
+                "human",
+                """
         Extract topics from {prompt}
-        """)
-    ])
+        """,
+            ),
+        ]
+    )
 
     chain = direct_prompt | model | (lambda x: x.content)
 
-    topics_list = chain.invoke({
-        "prompt": text_list
-    })
+    topics_list = chain.invoke({"prompt": text_list})
     return topics_list
+
 
 text_context = pdf2text("https://arxiv.org/pdf/1706.03762")
 list_of_topics = getTopics(text_context)
 print(list_of_topics)
-
