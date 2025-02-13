@@ -7,9 +7,13 @@ from paperweave.flow_elements.prompt_templates import (
     create_questions_template,
     create_intro_template,
 )
-from paperweave.flow_elements.flows import create_answer, create_conclusion, get_topics
+from paperweave.flow_elements.flows import (
+    create_answer,
+    create_conclusion,
+    get_sections,
+)
 from paperweave.transforms import extract_list, transcript_to_full_text
-from paperweave.data_type import MyState, Utterance, Persona, Paper, Podcast, Topic
+from paperweave.data_type import MyState, Utterance, Persona, Paper, Podcast, Section
 from paperweave.get_data import get_arxiv_text, get_paper_title
 import os
 from langchain_openai import ChatOpenAI
@@ -29,10 +33,10 @@ os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_KEY") or ""
 def get_questions(
     model,
     paper: Paper,
-    topic: str,
+    section: str,
     nb_questions: int,
-    previous_topics: List[str],
-    future_topics: List[str],
+    previous_sections: List[str],
+    future_sections: List[str],
     podcast_tech_level: str,
 ):
     variables = {
@@ -40,9 +44,9 @@ def get_questions(
         "podcast_tech_level": podcast_tech_level,
         "paper": paper["text"],
         "nb_questions": nb_questions,
-        "topic": topic,
-        "previous_topics": previous_topics,
-        "future_topics": future_topics,
+        "section": section,
+        "previous_sections": previous_sections,
+        "future_sections": future_sections,
     }
 
     # Format the prompt with the variables
@@ -62,7 +66,7 @@ class GetPaper:
         title = get_paper_title(code)
         paper = Paper(text=text, code=code, title=title)
         podcast = Podcast(paper=paper)
-        state = MyState(podcast=podcast, index_question=0, index_topic=0)
+        state = MyState(podcast=podcast, index_question=0, index_section=0)
         return state
 
 
@@ -87,29 +91,31 @@ class GetIntro:
 
         intro = response.content
 
-        podcast["transcript"].append(Utterance(persona=podcast["host"], speach=intro))
+        podcast["transcript"].append(
+            Utterance(persona=podcast["host"], speach=intro, category="introduction")
+        )
         state["podcast"] = podcast
 
         return state
 
 
-class GetTopics:
-    def __init__(self, nb_topic=5, podcast_tech_level="expert"):
-        self.nb_topic = nb_topic
+class GetSections:
+    def __init__(self, nb_section=5, podcast_tech_level="expert"):
+        self.nb_section = nb_section
         self.podcast_tech_level = podcast_tech_level
         self.model = get_chat_model()
 
     def __call__(self, state: MyState) -> MyState:
         podcast = state["podcast"]
         paper = podcast["paper"]
-        topics = get_topics(
+        section = get_sections(
             model=self.model,
             paper_title=paper["title"],
             podcast_tech_level=self.podcast_tech_level,
             paper=paper["text"],
-            nb_topics=self.nb_topic,
+            nb_sections=self.nb_section,
         )
-        state["topics"] = topics
+        state["sections"] = section
         state["podcast"]
         return state
 
@@ -132,7 +138,7 @@ class GetExpertUtterance:
                 previous_question = podcast["transcript"][-2]["speach"]
 
         podcast["transcript"].append(
-            Utterance(persona=podcast["host"], speach=question)
+            Utterance(persona=podcast["host"], speach=question, category="question")
         )
 
         paper_title = podcast["paper"]["title"]
@@ -149,7 +155,7 @@ class GetExpertUtterance:
         )
 
         podcast["transcript"].append(
-            Utterance(persona=podcast["expert"], speach=answer)
+            Utterance(persona=podcast["expert"], speach=answer, category="answer")
         )
 
         print(state["index_question"])
@@ -164,32 +170,32 @@ def get_chat_model() -> ChatOllama | ChatOpenAI:
         return ChatOllama(model="mistral-small:latest")
 
 
-class GetQuestionsForTopic:
-    def __init__(self, nb_question_per_topic=1, podcast_tech_level="expert"):
+class GetQuestionsForSection:
+    def __init__(self, nb_question_per_section=1, podcast_tech_level="expert"):
         self.model = get_chat_model()
-        self.nb_question_per_topic = nb_question_per_topic
+        self.nb_question_per_section = nb_question_per_section
         self.podcast_tech_level = podcast_tech_level
 
     def __call__(self, state: MyState) -> MyState:
         podcast = state["podcast"]
         paper = podcast["paper"]
-        index_topic = state["index_topic"]
-        all_topics = state["topics"]
-        previous_topics = all_topics[:index_topic]
-        topic = all_topics[index_topic]
-        future_topics = all_topics[index_topic + 1 :]
+        index_section = state["index_section"]
+        all_sections = state["sections"]
+        previous_sections = all_sections[:index_section]
+        section = all_sections[index_section]
+        future_sections = all_sections[index_section + 1 :]
         questions = get_questions(
             model=self.model,
             paper=paper,
-            nb_questions=self.nb_question_per_topic,
-            topic=topic,
-            previous_topics=previous_topics,
-            future_topics=future_topics,
+            nb_questions=self.nb_question_per_section,
+            section=section,
+            previous_sections=previous_sections,
+            future_sections=future_sections,
             podcast_tech_level="expert",
         )
         state["questions"] = questions
-        topic = Topic(topic_string=topic, topic_starting_questions=questions)
-        state["podcast"]["topics"].append(topic)
+        section = Section(section_string=section, section_starting_questions=questions)
+        state["podcast"]["sections"].append(section)
         return state
 
 
@@ -197,8 +203,8 @@ class InitPodcast:
     def __call__(self, state: MyState):
         if "transcript" not in state["podcast"]:
             state["podcast"]["transcript"] = []
-        if "topics" not in state["podcast"]:
-            state["podcast"]["topics"] = []
+        if "sections" not in state["podcast"]:
+            state["podcast"]["sections"] = []
 
         state["podcast"]["host"] = Persona(name="Jimmy")
         state["podcast"]["expert"] = Persona(name="Mike")
@@ -206,9 +212,9 @@ class InitPodcast:
         return state
 
 
-class EndTopic:
+class EndSection:
     def __call__(self, state: MyState) -> MyState:
-        state["index_topic"] = state["index_topic"] + 1
+        state["index_section"] = state["index_section"] + 1
         state["index_question"] = 0
         return state
 
@@ -231,7 +237,9 @@ class Conclusion:
             podcast_transcript=transcript,
         )
         state["podcast"]["transcript"].append(
-            Utterance(persona=podcast["host"], speach=conclusion_text)
+            Utterance(
+                persona=podcast["host"], speach=conclusion_text, category="conclusion"
+            )
         )
 
 
@@ -243,8 +251,8 @@ def loop_list_condition(index_name: str, list_name: int) -> Callable:
 
 
 def build_graph(
-    nb_topic: int = 2,
-    begin_nb_question_per_topic: int = 2,
+    nb_section: int = 2,
+    begin_nb_question_per_section: int = 2,
     podcast_level: str = "expert",
 ):
     builder = StateGraph(MyState, input=MyState, output=MyState)
@@ -253,35 +261,36 @@ def build_graph(
     builder.add_node("init_podcast", InitPodcast())
     builder.add_node("intro_podcast", GetIntro(podcast_level=podcast_level))
     builder.add_node(
-        "get_topics", GetTopics(nb_topic=nb_topic, podcast_tech_level=podcast_level)
+        "get_sections",
+        GetSections(nb_section=nb_section, podcast_tech_level=podcast_level),
     )
     builder.add_node(
         "get_question",
-        GetQuestionsForTopic(
-            nb_question_per_topic=begin_nb_question_per_topic,
+        GetQuestionsForSection(
+            nb_question_per_section=begin_nb_question_per_section,
             podcast_tech_level=podcast_level,
         ),
     )
     builder.add_node(
         "get_utterance", GetExpertUtterance(podcast_tech_level=podcast_level)
     )
-    builder.add_node("end_topic", EndTopic())
+    builder.add_node("end_section", EndSection())
     builder.add_node("conclusion", Conclusion(podcast_tech_level=podcast_level))
     # define edges
     builder.add_edge(START, "get_paper")
     builder.add_edge("get_paper", "init_podcast")
     builder.add_edge("init_podcast", "intro_podcast")
-    builder.add_edge("intro_podcast", "get_topics")
-    builder.add_edge("get_topics", "get_question")
+    builder.add_edge("intro_podcast", "get_sections")
+    builder.add_edge("get_sections", "get_question")
     builder.add_edge("get_question", "get_utterance")
     builder.add_conditional_edges(
         "get_utterance",
         loop_list_condition(index_name="index_question", list_name="questions"),
-        {True: "get_utterance", False: "end_topic"},
+        {True: "get_utterance", False: "end_section"},
     )
     builder.add_conditional_edges(
-        "end_topic",
-        loop_list_condition(index_name="index_topic", list_name="topics"),
+        "end_section",
+        loop_list_condition(index_name="index_section", list_name="sections"),
         {True: "get_question", False: "conclusion"},
     )
     builder.add_edge("conclusion", END)
@@ -297,19 +306,19 @@ list_articles = [
     # "2411.17703v1"
     "1706.03762v7"
 ]  # ,"1810.04805v2","2404.19756v4","2410.10630v1","2411.17703v1"]
-nb_topic = 3
-begin_nb_question_per_topic = 2
+nb_section = 3
+begin_nb_question_per_section = 2
 podcast_level = "expert"
 for article in list_articles:
     input = {
         "article_code": article,
-        "nb_topic": nb_topic,
-        "begin_nb_question_per_topic": begin_nb_question_per_topic,
+        "nb_section": nb_section,
+        "begin_nb_question_per_section": begin_nb_question_per_section,
         "podcast_level": podcast_level,
     }
     graph = build_graph(
-        nb_topic=nb_topic,
-        begin_nb_question_per_topic=begin_nb_question_per_topic,
+        nb_section=nb_section,
+        begin_nb_question_per_section=begin_nb_question_per_section,
         podcast_level=podcast_level,
     )
     graph_as_image = graph.get_graph().draw_mermaid_png()

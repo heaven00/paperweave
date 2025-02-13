@@ -4,7 +4,7 @@ import re
 from paperweave.flow_elements.prompt_templates import (
     new_question_template,
     answer_template,
-    find_topics_template,
+    find_sections_template,
     host_conclusion_template,
 )
 from paperweave.transforms import extract_list
@@ -29,7 +29,7 @@ def create_new_question(
     paper_title,
     podcast_tech_level,
     paper,
-    topic,
+    section,
     previous_question,
     previous_answer,
 ):
@@ -37,7 +37,7 @@ def create_new_question(
         "paper_title": paper_title,
         "podcast_tech_level": podcast_tech_level,
         "paper": paper,
-        "topic": topic,
+        "section": section,
         "previous_question": previous_question,
         "previous_answer": previous_answer,
     }
@@ -94,12 +94,12 @@ def create_conclusion(
     return response.content
 
 
-def loop_question_answer_on_topic(
+def loop_question_answer_on_section(
     model,
     paper_title,
     podcast_tech_level,
     paper,
-    topic,
+    section,
     previous_question,
     previous_answer,
     nb_question,
@@ -112,7 +112,7 @@ def loop_question_answer_on_topic(
             paper_title,
             podcast_tech_level,
             paper,
-            topic,
+            section,
             previous_question,
             previous_answer,
         )
@@ -132,16 +132,16 @@ def loop_question_answer_on_topic(
     return questions, answers
 
 
-def get_topics(model, paper_title, podcast_tech_level, paper, nb_topics):
+def get_sections(model, paper_title, podcast_tech_level, paper, nb_sections):
     variables = {
         "paper_title": paper_title,
         "podcast_tech_level": podcast_tech_level,
         "paper": paper,
-        "nb_topics": nb_topics,
+        "nb_sections": nb_sections,
     }
 
     # Format the prompt with the variables
-    prompt = find_topics_template.invoke(variables)
+    prompt = find_sections_template.invoke(variables)
 
     # Get the model's response
     response = model.invoke(prompt)

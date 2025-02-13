@@ -5,16 +5,17 @@ from typing import Callable
 import pprint
 
 
-def verify_number_topic(data: dict) -> bool:
-    input_nb_topic = data["input"]["nb_topic"]
-    output_nb_topic = len(data["podcast"]["topics"])
-    return input_nb_topic == output_nb_topic
+def verify_number_section(data: dict) -> bool:
+    input_nb_section = data["input"]["nb_section"]
+    output_nb_section = len(data["podcast"]["sections"])
+    return input_nb_section == output_nb_section
 
 
 def verify__number_question(data: dict) -> float:
-    input_nb_questions = data["input"]["begin_nb_question_per_topic"]
+    input_nb_questions = data["input"]["begin_nb_question_per_section"]
     list_nb_questions = [
-        len(topic["topic_starting_questions"]) for topic in data["podcast"]["topics"]
+        len(section["section_starting_questions"])
+        for section in data["podcast"]["sections"]
     ]
     correct_answers = [
         input_nb_questions == pred_value for pred_value in list_nb_questions
@@ -22,7 +23,7 @@ def verify__number_question(data: dict) -> float:
     return sum(correct_answers) / len(correct_answers)
 
 
-def create_results(folder: Path, previous_annotation) -> pd.DataFrame:
+def create_results(folder: Path, previous_annotation: pd.DataFrame) -> pd.DataFrame:
     list_results = []
     user_name = input("What is your username for the data annotations :")
     for json_file in folder.glob("*.json"):
@@ -38,16 +39,16 @@ def create_results(folder: Path, previous_annotation) -> pd.DataFrame:
             row_data = {f"input__{key}": value for key, value in row_data.items()}
             row_data.update(previous_annotation_row)
             row_data["pipeline_file_name"] = json_file.stem
-            row_data["correct_nb_topics"] = verify_number_topic(data)
+            row_data["correct_nb_sections"] = verify_number_section(data)
             row_data["percentage_correct_number_question"] = verify__number_question(
                 data
             )
             add_annotation(
                 data=data,
                 row_data=row_data,
-                annotation_name="good_initial_topic",
+                annotation_name="good_initial_section",
                 user_name=user_name,
-                annotation_function=verify_good_topics,
+                annotation_function=verify_good_sections,
             )
 
             list_results.append(row_data)
@@ -93,10 +94,10 @@ def boolean_question() -> bool | str:
         return ""
 
 
-def verify_good_topics(data: dict) -> bool | str:
-    question = "Do you think that this is a good list of topic generate about this paper is good?"
+def verify_good_sections(data: dict) -> bool | str:
+    question = f"Do you think that this is a good list of section generate about this paper is good?"
 
-    pred_result = [topic["topic_string"] for topic in data["podcast"]["topics"]]
+    pred_result = [section["section_string"] for section in data["podcast"]["sections"]]
     print(question)
     pprint.pp(pred_result)
     return boolean_question()

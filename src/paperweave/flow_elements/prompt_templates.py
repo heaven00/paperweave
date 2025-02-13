@@ -8,8 +8,8 @@ You also try to make the conversation fluid and natural."""
 new_question_user = """Ask a question to the domain expert who is doing the podcast with you. The expert understand perfectly the paper.
 The question should be about the following paper
 {paper}
-and on the following topic
-{topic}
+and on the following section
+{section}
 
 Consider that you just asked the following question
 {previous_question}
@@ -44,11 +44,11 @@ answer_template = ChatPromptTemplate.from_messages(
     [("system", answer_question_system), ("user", answer_question_user)]
 )
 
-find_topics_system = """"You are the host of a podcast. You talk about the paper title {paper_title}.
+find_sections_system = """"You are the host of a podcast. You talk about the paper title {paper_title}.
 You are an expert in the field, but you still create interesting podcast. You adjust the level of technicality of the podcast to {podcast_tech_level}.
 Create a list of sections in the podcast to make an interesting podcast."""
 
-find_topics_user = """You create a list of {nb_topics} sections of the podcast to make it interesting. 
+find_sections_user = """You create a list of {nb_sections} sections of the podcast to make it interesting. 
 DO NOT FOLLOW THE STRUCTURE OF THE PAPER. MAKE IT THE STRUCTURE OF AN INTERESTING PODCAST!
 The paper is :
 {paper}
@@ -62,8 +62,8 @@ You output the list of sections in a python list. For example:
 ]
 """
 
-find_topics_template = ChatPromptTemplate.from_messages(
-    [("system", find_topics_system), ("user", find_topics_user)]
+find_sections_template = ChatPromptTemplate.from_messages(
+    [("system", find_sections_system), ("user", find_sections_user)]
 )
 
 
@@ -72,12 +72,12 @@ You are an expert in the field, but you still create interesting podcast. You ad
 Create a list of questions(and the order) to make an interesting podcast."""
 
 create_questions_user = """You create a list of {nb_questions} question in the order that should be present in the podcast to make it interesting.
-The question, should be for the topic of {topic}. 
-The topic discussed before the question were {previous_topics}. So try make a transition that is smooth to the new topic.
-The topics that will discussed after the question that you will generate are {future_topics}. Try to create question will make the last question to transition well to the next topic.
+The question, should be for the section of {section}. 
+The section discussed before the question were {previous_sections}. So try make a transition that is smooth to the new section.
+The sections that will discussed after the question that you will generate are {future_sections}. Try to create question will make the last question to transition well to the next section.
 The paper is :
 {paper}
-You output the list of topics in a python list. For example:
+You output the list of sections in a python list. For example:
 [
 "what is new in the method",
 "what are interesting results",
