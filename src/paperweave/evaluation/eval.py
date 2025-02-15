@@ -46,9 +46,30 @@ def create_results(folder: Path, previous_annotation: pd.DataFrame) -> pd.DataFr
             add_annotation(
                 data=data,
                 row_data=row_data,
-                annotation_name="good_initial_section",
+                annotation_name="completeness_initial_section",
                 user_name=user_name,
-                annotation_function=verify_good_sections,
+                annotation_function=verify_completeness_sections,
+            )
+            add_annotation(
+                data=data,
+                row_data=row_data,
+                annotation_name="logical_sequence_initial_section",
+                user_name=user_name,
+                annotation_function=verify_logical_sequence_sections,
+            )
+            add_annotation(
+                data=data,
+                row_data=row_data,
+                annotation_name="relevent_question_for_initial_section",
+                user_name=user_name,
+                annotation_function=verify_relevent_question_for_section,
+            )
+            add_annotation(
+                data=data,
+                row_data=row_data,
+                annotation_name="correct_answer_to_question",
+                user_name=user_name,
+                annotation_function=verify_answer_question,
             )
 
             list_results.append(row_data)
@@ -74,8 +95,10 @@ def add_annotation(
         row_data[f"{annotation_name}__{user_name}"] = annotation_function(data)
 
 
-def boolean_question() -> bool | str:
-    anwser_choice = ["y", "n", ""]
+def boolean_question(force_answer:bool=False) -> bool | str:
+    anwser_choice = ["y", "n"]
+    if not force_answer:
+        anwser_choice.append("")
     while True:
         user_input = input(
             f"Please choose one of the following: {', '.join(anwser_choice)}: "
@@ -94,10 +117,78 @@ def boolean_question() -> bool | str:
         return ""
 
 
-def verify_good_sections(data: dict) -> bool | str:
-    question = f"Do you think that this is a good list of section generate about this paper is good?"
+def verify_completeness_sections(data: dict) -> bool | str:
+    print()
+    paper_code = data["podcast"]["paper"]["code"]
+    paper_title = data["podcast"]["paper"]["title"]
+    question = f"For the paper {paper_code}:{paper_title}, do you think that these sections cover well the paper(i.e.) completeness?"
 
     pred_result = [section["section_string"] for section in data["podcast"]["sections"]]
-    print(question)
+    pprint.pp(question)
     pprint.pp(pred_result)
     return boolean_question()
+
+
+def verify_logical_sequence_sections(data: dict) -> bool | str:
+    print()
+    paper_code = data["podcast"]["paper"]["code"]
+    paper_title = data["podcast"]["paper"]["title"]
+    question = f"For the paper {paper_code}:{paper_title}, do you think that these sections are in logical sequence?"
+
+    pred_result = [section["section_string"] for section in data["podcast"]["sections"]]
+    pprint.pp(question)
+    pprint.pp(pred_result)
+    return boolean_question()
+
+def verify_relevent_question_for_section(data:dict)-> float:
+    print()
+    paper_code = data["podcast"]["paper"]["code"]
+    paper_title = data["podcast"]["paper"]["title"]
+    context = f"For the paper {paper_code}:{paper_title}, verify that the questions are relevent for the section?"
+    pprint.pp(context)
+
+    sections = data["podcast"]["sections"]
+    results = []
+    for section in sections:
+        print()
+        section_questions = section["section_starting_questions"]
+        section_description = section["section_string"]
+        question = f"Do you think that for this \n {section_description}\nDo you think this questions are relevent"
+        pprint.pp(question)
+        pprint.pp(section_questions)
+        results.append(boolean_question(force_answer=True))
+    percentage_section_with_relevent_questions = sum(results)/len(results)
+    return percentage_section_with_relevent_questions
+
+
+def verify_answer_question(data:dict)-> float:
+    print()
+    paper_code = data["podcast"]["paper"]["code"]
+    paper_title = data["podcast"]["paper"]["title"]
+    context = f"For the paper {paper_code}:{paper_title}, verify that the answer respond correctly to the question?"
+    pprint.pp(context)
+
+    utterances = data["podcast"]["transcript"]
+    results = []
+    question = ""
+    answer = ""
+    for utterance in utterances:
+        print()
+        if utterance.get("category", "")=="question":
+            question = utterance.get("speach", "")
+        if (question) and (utterance.get("category", "")=="answer"):
+            answer = utterance.get("speach", "")
+            present_question = "Do you think that for this question :"
+            pprint.pp(present_question)
+            pprint.pp(question)
+            present_answer = "that this answer is correct and addapted:"
+            pprint.pp(present_answer)
+            pprint.pp(answer)
+            results.append(boolean_question(force_answer=True))
+            answer=""
+            question=""
+
+    percentage_section_with_relevent_questions = sum(results) / len(results)
+    return percentage_section_with_relevent_questions
+
+

@@ -307,7 +307,7 @@ list_articles = [
     "1706.03762v7"
 ]  # ,"1810.04805v2","2404.19756v4","2410.10630v1","2411.17703v1"]
 nb_section = 3
-begin_nb_question_per_section = 2
+begin_nb_question_per_section = 1
 podcast_level = "expert"
 for article in list_articles:
     input = {
