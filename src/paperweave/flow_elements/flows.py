@@ -6,6 +6,7 @@ from paperweave.flow_elements.prompt_templates import (
     answer_template,
     find_topics_template,
     host_conclusion_template,
+    find_topics_questions_template
 )
 from paperweave.transforms import extract_list
 
@@ -147,4 +148,56 @@ def get_topics(model, paper_title, podcast_tech_level, paper, nb_topics):
     response = model.invoke(prompt)
 
     result = extract_list(response.content)
+    return result
+
+from pydantic import BaseModel, Field
+from typing import Optional
+from typing import List
+
+class Section(BaseModel):
+    questions : List[str] = Field(description="list of questions of size number_of_question")
+    section_subject : str  = Field(description="description of podcast section")
+    number_of_question: int =  Field(description="number of questions in the section")
+
+class FullOutput(BaseModel):
+    sections: List[Section] = Field(description="list of sections of size number_of_section")
+    number_of_section:int =  Field(description="number of sections in the podcast")
+
+def get_sections_questions(model, paper_title, podcast_tech_level, paper, nb_topics, nb_questions_per_topic):
+    variables = {
+        "paper_title": paper_title,
+        "podcast_tech_level": podcast_tech_level,
+        "paper": paper,
+        "nb_topics": nb_topics,
+        "nb_questions_per_topic": nb_questions_per_topic
+    }
+
+    # Format the prompt with the variables
+    prompt = find_topics_questions_template.invoke(variables)
+
+    # # Get the model's response
+    # def schema(nb_topics,nb_questions_per_topic):
+    #     final_list = {}
+    #     for nt in range(nb_topics):
+    #         list_questions = ["question to be asked"]*nb_questions_per_topic
+    #         final_list["section%d"%(nt+1)] = "Short description of the section"
+    #         final_list["questions_for_section%d"%(nt+1)]= "%s"%list_questions
+        
+    #     print(final_list)
+    #     print('type:',type(final_list))
+
+
+    #     """{'section1': 'Short description of the section', 
+    #     'questions_for_section1': "['question to be asked', 'question to be asked']", 
+    #     'section2': 'Short description of the section', 
+    #     'questions_for_section2': "['question to be asked', 'question to be asked']", 
+    #     'section3': 'Short description of the section', 
+    #     'questions_for_section3': "['question to be asked', 'question to be asked']"}"""
+
+    # return final_list
+    
+    model_with_structure = model.with_structured_output(FullOutput) #schema(nb_topics,nb_questions_per_topic))
+    response = model_with_structure.invoke(prompt)
+    result = response.model_dump() 
+    print('HHHHHHHHH',result)
     return result

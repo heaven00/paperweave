@@ -44,7 +44,7 @@ answer_template = ChatPromptTemplate.from_messages(
     [("system", answer_question_system), ("user", answer_question_user)]
 )
 
-find_topics_system = """"You are the host of a podcast. You talk about the paper title {paper_title}.
+find_topics_system = """You are the host of a podcast. You talk about the paper title {paper_title}.
 You are an expert in the field, but you still create interesting podcast. You adjust the level of technicality of the podcast to {podcast_tech_level}.
 Create a list of sections in the podcast to make an interesting podcast."""
 
@@ -124,4 +124,21 @@ The paper discussed in the podcast is:
 """
 create_intro_template = ChatPromptTemplate.from_messages(
         [("system",create_intro_system),("user", create_intro_user)]
+    )
+
+
+find_topics_questions_system =  """You are the host of a podcast where you discuss the paper titled "{paper_title}".
+You are an expert in the field, but you still create interesting podcast. You adjust the level of technicality of the podcast to {podcast_tech_level}.
+Generate a list of sections of the podcast and questions to be asked to make it an interesting podcast."""
+
+find_topics_questions_user = """Create a list of sections of the podcast. Each section should contain questions to be asked.  
+DO NOT FOLLOW THE STRUCTURE OF THE PAPER. MAKE IT THE STRUCTURE OF AN INTERESTING PODCAST! 
+
+Create a list of {nb_topics} sections (number_of_section), and {nb_questions_per_topic} questions (number_of_question) per section to discuss the paper:
+
+{paper}
+
+"""
+find_topics_questions_template = ChatPromptTemplate.from_messages(
+        [("system",find_topics_questions_system),("user", find_topics_questions_user)]
     )

@@ -22,11 +22,14 @@ class Persona(TypedDict):
 class Utterance(TypedDict):
     persona: Annotated[Persona, "person who speak"] = Persona()
     speach: Annotated[str, "what the persona have said"] = ""
+    category: Annotated[str, "what kind of uttenrence(question, answer, ...)"]
 
 
-class Topic(TypedDict):
-    topic_string: Annotated[str, "description of the topic"]
-    topic_starting_questions : Annotated[List[str], "list of the question at the begining for the topic"]
+class Section(TypedDict):
+    section_string: Annotated[str, "description of the section"]
+    section_starting_questions: Annotated[
+        List[str], "list of the question at the begining for the section"
+    ]
 
 
 # data format
@@ -38,13 +41,12 @@ class Podcast(TypedDict):
     ] = []
     host: Annotated[Persona, "host of the podcast"]
     expert: Annotated[Persona, "expert who speak in the podcast"]
-    topics: Annotated[List[Topic], "list of topic to talk during the podcast"]
-
+    sections: Annotated[List[Section], "list of section to talk during the podcast"]
 
 
 class MyState(TypedDict):
     podcast: Podcast = Podcast()
     index_question: int = 0
-    index_topic: int = 0
+    index_section: int = 0
     questions: List[str] = []
-    topics: List[str] = []
+    sections: List[str] = []
