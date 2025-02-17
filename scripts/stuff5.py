@@ -11,6 +11,7 @@ from paperweave.flow_elements.flows import (
     create_answer,
     create_conclusion,
     get_sections,
+    get_sections_questions,
 )
 from paperweave.transforms import extract_list, transcript_to_full_text
 from paperweave.data_type import MyState, Utterance, Persona, Paper, Podcast, Section
@@ -99,24 +100,32 @@ class GetIntro:
         return state
 
 
-class GetSections:
-    def __init__(self, nb_section=5, podcast_tech_level="expert"):
+class GetSectionsAnsQuestions:
+    def __init__(
+        self, nb_section=5, podcast_tech_level="expert", nb_question_per_section=2
+    ):
         self.nb_section = nb_section
         self.podcast_tech_level = podcast_tech_level
         self.model = get_chat_model()
+        self.nb_question_per_section = nb_question_per_section
 
     def __call__(self, state: MyState) -> MyState:
         podcast = state["podcast"]
         paper = podcast["paper"]
-        section = get_sections(
+
+        section_and_question = get_sections_questions(
             model=self.model,
             paper_title=paper["title"],
             podcast_tech_level=self.podcast_tech_level,
             paper=paper["text"],
             nb_sections=self.nb_section,
+            nb_questions_per_section=self.nb_question_per_section,
         )
-        state["sections"] = section
-        state["podcast"]
+        state["podcast"]["sections"] = section_and_question.model_dump()["sections"]
+        state["sections"] = [
+            section["section_subject"] for section in state["podcast"]["sections"]
+        ]
+
         return state
 
 
@@ -178,24 +187,10 @@ class GetQuestionsForSection:
 
     def __call__(self, state: MyState) -> MyState:
         podcast = state["podcast"]
-        paper = podcast["paper"]
         index_section = state["index_section"]
-        all_sections = state["sections"]
-        previous_sections = all_sections[:index_section]
-        section = all_sections[index_section]
-        future_sections = all_sections[index_section + 1 :]
-        questions = get_questions(
-            model=self.model,
-            paper=paper,
-            nb_questions=self.nb_question_per_section,
-            section=section,
-            previous_sections=previous_sections,
-            future_sections=future_sections,
-            podcast_tech_level="expert",
-        )
+
+        questions = podcast["sections"][index_section]["questions"]
         state["questions"] = questions
-        section = Section(section_string=section, section_starting_questions=questions)
-        state["podcast"]["sections"].append(section)
         return state
 
 
@@ -262,14 +257,15 @@ def build_graph(
     builder.add_node("intro_podcast", GetIntro(podcast_level=podcast_level))
     builder.add_node(
         "get_sections",
-        GetSections(nb_section=nb_section, podcast_tech_level=podcast_level),
+        GetSectionsAnsQuestions(
+            nb_section=nb_section,
+            podcast_tech_level=podcast_level,
+            nb_question_per_section=begin_nb_question_per_section,
+        ),
     )
     builder.add_node(
         "get_question",
-        GetQuestionsForSection(
-            nb_question_per_section=begin_nb_question_per_section,
-            podcast_tech_level=podcast_level,
-        ),
+        GetQuestionsForSection(),
     )
     builder.add_node(
         "get_utterance", GetExpertUtterance(podcast_tech_level=podcast_level)
@@ -307,7 +303,7 @@ list_articles = [
     "1706.03762v7"
 ]  # ,"1810.04805v2","2404.19756v4","2410.10630v1","2411.17703v1"]
 nb_section = 3
-begin_nb_question_per_section = 1
+begin_nb_question_per_section = 2
 podcast_level = "expert"
 for article in list_articles:
     input = {
