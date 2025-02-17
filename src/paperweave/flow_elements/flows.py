@@ -6,6 +6,7 @@ from paperweave.flow_elements.prompt_templates import (
     answer_template,
     find_sections_template,
     host_conclusion_template,
+    find_sections_questions_template,
 )
 from paperweave.transforms import extract_list
 
@@ -148,3 +149,30 @@ def get_sections(model, paper_title, podcast_tech_level, paper, nb_sections):
 
     result = extract_list(response.content)
     return result
+
+
+from paperweave.data_type_direct_llm_call import SectionQuestionLLMOutput
+
+
+def get_sections_questions(
+    model,
+    paper_title: str,
+    podcast_tech_level: str,
+    paper: str,
+    nb_sections: int,
+    nb_questions_per_section: int,
+) -> SectionQuestionLLMOutput:
+    variables = {
+        "paper_title": paper_title,
+        "podcast_tech_level": podcast_tech_level,
+        "paper": paper,
+        "nb_sections": nb_sections,
+        "nb_questions_per_section": nb_questions_per_section,
+    }
+
+    prompt = find_sections_questions_template.invoke(variables)
+
+    model_with_structure = model.with_structured_output(SectionQuestionLLMOutput)
+    response = model_with_structure.invoke(prompt)
+    result = response.model_dump()
+    return response

@@ -26,8 +26,8 @@ class Utterance(TypedDict):
 
 
 class Section(TypedDict):
-    section_string: Annotated[str, "description of the section"]
-    section_starting_questions: Annotated[
+    section_subject: Annotated[str, "description of the section"]
+    questions: Annotated[
         List[str], "list of the question at the begining for the section"
     ]
 

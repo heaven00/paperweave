@@ -95,7 +95,7 @@ def add_annotation(
         row_data[f"{annotation_name}__{user_name}"] = annotation_function(data)
 
 
-def boolean_question(force_answer:bool=False) -> bool | str:
+def boolean_question(force_answer: bool = False) -> bool | str:
     anwser_choice = ["y", "n"]
     if not force_answer:
         anwser_choice.append("")
@@ -140,7 +140,8 @@ def verify_logical_sequence_sections(data: dict) -> bool | str:
     pprint.pp(pred_result)
     return boolean_question()
 
-def verify_relevent_question_for_section(data:dict)-> float:
+
+def verify_relevent_question_for_section(data: dict) -> float:
     print()
     paper_code = data["podcast"]["paper"]["code"]
     paper_title = data["podcast"]["paper"]["title"]
@@ -157,11 +158,11 @@ def verify_relevent_question_for_section(data:dict)-> float:
         pprint.pp(question)
         pprint.pp(section_questions)
         results.append(boolean_question(force_answer=True))
-    percentage_section_with_relevent_questions = sum(results)/len(results)
+    percentage_section_with_relevent_questions = sum(results) / len(results)
     return percentage_section_with_relevent_questions
 
 
-def verify_answer_question(data:dict)-> float:
+def verify_answer_question(data: dict) -> float:
     print()
     paper_code = data["podcast"]["paper"]["code"]
     paper_title = data["podcast"]["paper"]["title"]
@@ -174,9 +175,9 @@ def verify_answer_question(data:dict)-> float:
     answer = ""
     for utterance in utterances:
         print()
-        if utterance.get("category", "")=="question":
+        if utterance.get("category", "") == "question":
             question = utterance.get("speach", "")
-        if (question) and (utterance.get("category", "")=="answer"):
+        if (question) and (utterance.get("category", "") == "answer"):
             answer = utterance.get("speach", "")
             present_question = "Do you think that for this question :"
             pprint.pp(present_question)
@@ -185,10 +186,8 @@ def verify_answer_question(data:dict)-> float:
             pprint.pp(present_answer)
             pprint.pp(answer)
             results.append(boolean_question(force_answer=True))
-            answer=""
-            question=""
+            answer = ""
+            question = ""
 
     percentage_section_with_relevent_questions = sum(results) / len(results)
     return percentage_section_with_relevent_questions
-
-
