@@ -16,40 +16,8 @@ Alternatively, you can use pip install to install uv
 copied from https://github.com/astral-sh/uv
 
 
-- create virtualenv with python 3.11 `uv venv -p 3.11 venv`
-- activate virtualenv `source venv/bin/activate`
-- install requirements `uv pip install -r requirements.txt`
+- Run `uv sync` to create a virtual environment for your project.This adds paperweave also to your python environment.
+- Use `uv run python your_script.py` to run your python script within the virtual environment or activate the environment manually by running `source .venv/bin/activate`.
 
-
-### Hack to get docling running properly | Important step
-after `uv pip install -r requirements.txt` run `uv pip install docling`
-these is a version mismatch of `typer` dependency in langflow and docling which is causing issues this forces it somehow to disregard that and install docling as is
-
-
-### Running langflow
-*make sure the environment is activated*
-
-`uv run --env-file=langflow.env langflow run`
-
-Non-uv command to run langflow from the base folder of the project
-
-`DO_NOT_TRACK=true LANGFLOW_COMPONENTS_PATH=src/components langflow run`
-
-### versioning our flows
-- Download the flow as json using the export feature and put them under `src/flows` directory
-- commit to github
-- To load anyone's else flow use the import flow feature
-
-
-### install custom lib
-
- - pip install -e .
-
-### docker
-
-`docker build -t paperweave_image`
-`docker run -p 7860:7860 paperweave_image`
-
-and to access the langflow interface.
-
-`http://localhost:7860`
+### Add virtualenv to jupyter notebook
+`uv run python -m ipykernel install --user --name=paperweave` 
