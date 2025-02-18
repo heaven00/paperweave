@@ -18,3 +18,6 @@ copied from https://github.com/astral-sh/uv
 
 - Run `uv sync` to create a virtual environment for your project.This adds paperweave also to your python environment.
 - Use `uv run python your_script.py` to run your python script within the virtual environment or activate the environment manually by running `source .venv/bin/activate`.
+
+### Add virtualenv to jupyter notebook
+`uv run python -m ipykernel install --user --name=paperweave` 
