@@ -31,102 +31,12 @@ load_dotenv(env_file)
 os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_KEY") or ""
 
 
-def get_questions(
-    model,
-    paper: Paper,
-    section: str,
-    nb_questions: int,
-    previous_sections: List[str],
-    future_sections: List[str],
-    podcast_tech_level: str,
-):
-    variables = {
-        "paper_title": paper["title"],
-        "podcast_tech_level": podcast_tech_level,
-        "paper": paper["text"],
-        "nb_questions": nb_questions,
-        "section": section,
-        "previous_sections": previous_sections,
-        "future_sections": future_sections,
-    }
-
-    # Format the prompt with the variables
-    prompt = create_questions_template.invoke(variables)
-
-    # Get the model's response
-    response = model.invoke(prompt)
-    questions = extract_list(response.content)
-    return questions
-
-
-# node
-class GetPaper:
-    def __call__(self, state: MyState) -> MyState:
-        code = state["podcast"]["paper"]["code"]
-        text = get_arxiv_text(code)
-        title = get_paper_title(code)
-        paper = Paper(text=text, code=code, title=title)
-        podcast = Podcast(paper=paper)
-        state = MyState(podcast=podcast, index_question=0, index_section=0)
-        return state
-
-
-class GetIntro:
-    def __init__(self, podcast_level="expert"):
-        self.model = get_chat_model()
-        self.podcast_tech_level = podcast_level
-
-    def __call__(self, state: MyState) -> MyState:
-        podcast = state["podcast"]
-        paper = podcast["paper"]
-        variables = {
-            "paper_title": paper["title"],
-            "podcast_tech_level": self.podcast_tech_level,
-            "paper": paper["text"],
-            "host_name": podcast["host"]["name"],
-            "expert_name": podcast["expert"]["name"],
-        }
-
-        prompt = create_intro_template.invoke(variables)
-        response = self.model.invoke(prompt)
-
-        intro = response.content
-
-        podcast["transcript"].append(
-            Utterance(persona=podcast["host"], speach=intro, category="introduction")
-        )
-        state["podcast"] = podcast
-
-        return state
-
-
-class GetSectionsAnsQuestions:
-    def __init__(
-        self, nb_section=5, podcast_tech_level="expert", nb_question_per_section=2
-    ):
-        self.nb_section = nb_section
-        self.podcast_tech_level = podcast_tech_level
-        self.model = get_chat_model()
-        self.nb_question_per_section = nb_question_per_section
-
-    def __call__(self, state: MyState) -> MyState:
-        podcast = state["podcast"]
-        paper = podcast["paper"]
-
-        section_and_question = get_sections_questions(
-            model=self.model,
-            paper_title=paper["title"],
-            podcast_tech_level=self.podcast_tech_level,
-            paper=paper["text"],
-            nb_sections=self.nb_section,
-            nb_questions_per_section=self.nb_question_per_section,
-        )
-        state["podcast"]["sections"] = section_and_question.model_dump()["sections"]
-        state["sections"] = [
-            section["section_subject"] for section in state["podcast"]["sections"]
-        ]
-
-        return state
+from paperweave.model import get_chat_model
+from paperweave.graph.extraction_and_intro import (
+    GetPaper,
+    GetIntro,
+    GetSectionsAnsQuestions,
+)
 
 
 class HostUttterance:
@@ -192,56 +102,6 @@ def get_utterance_subgraph(podcast_tech_level: str = "expert"):
     builder.add_edge("expert", END)
     graph = builder.compile()
     return graph
-
-
-class GetExpertUtterance:
-    def __init__(self, podcast_tech_level: str = "expert"):
-        self.model = get_chat_model()
-        self.podcast_tech_level = podcast_tech_level
-
-    def __call__(self, state: MyState) -> MyState:
-        id_question = state["index_question"]
-        podcast = state["podcast"]
-        question = state["questions"][id_question]
-
-        previous_question = "no previous question"
-        previous_answer = "no previous answer"
-        if podcast["transcript"]:
-            if podcast["transcript"][-1]["persona"] == "expert":
-                previous_answer = podcast["transcript"][-1]["speach"]
-                previous_question = podcast["transcript"][-2]["speach"]
-
-        podcast["transcript"].append(
-            Utterance(persona=podcast["host"], speach=question, category="question")
-        )
-
-        paper_title = podcast["paper"]["title"]
-        paper_text = podcast["paper"]["text"]
-
-        answer = create_answer(
-            model=self.model,
-            paper_title=paper_title,
-            podcast_tech_level=self.podcast_tech_level,
-            paper=paper_text,
-            previous_question=previous_question,
-            previous_answer=previous_answer,
-            new_question=question,
-        )
-
-        podcast["transcript"].append(
-            Utterance(persona=podcast["expert"], speach=answer, category="answer")
-        )
-
-        print(state["index_question"])
-        state["index_question"] = state["index_question"] + 1
-        return state
-
-
-def get_chat_model() -> ChatOllama | ChatOpenAI:
-    if os.environ["OPENAI_API_KEY"]:
-        return ChatOpenAI(model="gpt-4o-mini")
-    else:
-        return ChatOllama(model="mistral-small:latest")
 
 
 class GetQuestionsForSection:
