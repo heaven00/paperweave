@@ -6,6 +6,7 @@ __pycache__/
 
 /data/transcripts
 /data/pipeline_output
+/data/annotation
 
 # C extensions
 *.so
@@ -173,3 +174,10 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+.aider*
+
+
+# chainlit
+.chainlit*
+.files*
+chainlit.md

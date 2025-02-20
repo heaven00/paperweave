@@ -8,8 +8,8 @@ You also try to make the conversation fluid and natural."""
 new_question_user = """Ask a question to the domain expert who is doing the podcast with you. The expert understand perfectly the paper.
 The question should be about the following paper
 {paper}
-and on the following topic
-{topic}
+and on the following section
+{section}
 
 Consider that you just asked the following question
 {previous_question}
@@ -44,11 +44,11 @@ answer_template = ChatPromptTemplate.from_messages(
     [("system", answer_question_system), ("user", answer_question_user)]
 )
 
-find_topics_system = """You are the host of a podcast. You talk about the paper title {paper_title}.
+find_sections_system = """You are the host of a podcast. You talk about the paper title {paper_title}.
 You are an expert in the field, but you still create interesting podcast. You adjust the level of technicality of the podcast to {podcast_tech_level}.
 Create a list of sections in the podcast to make an interesting podcast."""
 
-find_topics_user = """You create a list of {nb_topics} sections of the podcast to make it interesting. 
+find_sections_user = """You create a list of {nb_sections} sections of the podcast to make it interesting. 
 DO NOT FOLLOW THE STRUCTURE OF THE PAPER. MAKE IT THE STRUCTURE OF AN INTERESTING PODCAST!
 The paper is :
 {paper}
@@ -62,8 +62,8 @@ You output the list of sections in a python list. For example:
 ]
 """
 
-find_topics_template = ChatPromptTemplate.from_messages(
-    [("system", find_topics_system), ("user", find_topics_user)]
+find_sections_template = ChatPromptTemplate.from_messages(
+    [("system", find_sections_system), ("user", find_sections_user)]
 )
 
 
@@ -72,12 +72,12 @@ You are an expert in the field, but you still create interesting podcast. You ad
 Create a list of questions(and the order) to make an interesting podcast."""
 
 create_questions_user = """You create a list of {nb_questions} question in the order that should be present in the podcast to make it interesting.
-The question, should be for the topic of {topic}. 
-The topic discussed before the question were {previous_topics}. So try make a transition that is smooth to the new topic.
-The topics that will discussed after the question that you will generate are {future_topics}. Try to create question will make the last question to transition well to the next topic.
+The question, should be for the section of {section}. 
+The section discussed before the question were {previous_sections}. So try make a transition that is smooth to the new section.
+The sections that will discussed after the question that you will generate are {future_sections}. Try to create question will make the last question to transition well to the next section.
 The paper is :
 {paper}
-You output the list of topics in a python list. For example:
+You output the list of sections in a python list. For example:
 [
 "what is new in the method",
 "what are interesting results",
@@ -106,11 +106,10 @@ host_conclusion_template = ChatPromptTemplate.from_messages(
 )
 
 
-
 create_intro_system = """You are {host_name}, the host of a podcast where you and an expert, {expert_name}, discuss a paper title {paper_title}.
 You are an expert in the field, but you still create interesting podcast. You adjust the level of technicality of the podcast to {podcast_tech_level}.
 """
-create_intro_user ="""
+create_intro_user = """
 Create the text of speech of the introduction for your podcast. Make it engaging. You can follow these steps:
 - Breathly introduce the paper (title and the origin of the group of people working on it) 
 - Introduce the expert's name who will talk with you
@@ -123,22 +122,19 @@ The paper discussed in the podcast is:
 
 """
 create_intro_template = ChatPromptTemplate.from_messages(
-        [("system",create_intro_system),("user", create_intro_user)]
-    )
+    [("system", create_intro_system), ("user", create_intro_user)]
+)
 
 
-find_topics_questions_system =  """You are the host of a podcast where you discuss the paper titled "{paper_title}".
+find_sections_questions_system = """You are the host of a podcast where you discuss the paper titled "{paper_title}".
 You are an expert in the field, but you still create interesting podcast. You adjust the level of technicality of the podcast to {podcast_tech_level}.
 Generate a list of sections of the podcast and questions to be asked to make it an interesting podcast."""
 
-find_topics_questions_user = """Create a list of sections of the podcast. Each section should contain questions to be asked.  
+find_sections_questions_user = """Create a list of sections of the podcast. Each section should contain questions to be asked.  
 DO NOT FOLLOW THE STRUCTURE OF THE PAPER. MAKE IT THE STRUCTURE OF AN INTERESTING PODCAST! 
-
-Create a list of {nb_topics} sections (number_of_section), and {nb_questions_per_topic} questions (number_of_question) per section to discuss the paper:
-
+Create a list of {nb_sections} sections (number_of_section), and {nb_questions_per_section} questions (number_of_question) per section to discuss the paper:
 {paper}
-
 """
-find_topics_questions_template = ChatPromptTemplate.from_messages(
-        [("system",find_topics_questions_system),("user", find_topics_questions_user)]
-    )
+find_sections_questions_template = ChatPromptTemplate.from_messages(
+    [("system", find_sections_questions_system), ("user", find_sections_questions_user)]
+)
