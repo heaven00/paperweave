@@ -404,3 +404,31 @@ list_requests = ["What is attention?",
 ]
 for request in list_requests:
     print(request,": ",classifier(request))
+
+
+class ModifySectionsQuestions:
+    def __init__(self, nb_section=5, nb_question_per_section=2, podcast_tech_level="expert"
+    ):
+        self.nb_section = nb_section
+        self.nb_question_per_section = nb_question_per_section
+        self.podcast_tech_level = podcast_tech_level
+        self.model = get_chat_model()
+
+    def __call__(self, state: MyState) -> MyState:
+        podcast = state["podcast"]
+        paper = podcast["paper"]
+        modify_section_and_question = get_modified_sections_questions(
+            model=self.model,
+            paper_title=paper["title"],
+            podcast_tech_level=self.podcast_tech_level,
+            paper=paper["text"],
+            nb_sections=self.nb_section,
+            nb_questions_per_section=self.nb_question_per_section
+        )
+        
+        state["podcast"]["sections"] = section_and_question.model_dump()["sections"]
+        state["sections"] = [
+            section["section_subject"] for section in state["podcast"]["sections"]
+        ]
+        
+        return state
