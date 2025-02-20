@@ -168,6 +168,9 @@ class GetExpertUtterance:
 
 
 def get_chat_model() -> ChatOllama | ChatOpenAI:
+    if os.environ["OPENAI_API_KEY"]:
+        return ChatOpenAI(model="gpt-4o-mini")
+    else:
         return ChatOllama(model="mistral-small:latest")
 
 
@@ -290,51 +293,114 @@ def build_graph(nb_section:int=2, begin_nb_question_per_section:int=2, podcast_l
 
 ############################################################################################
 
-list_articles = [
-   # "2411.17703v1"
-    "1706.03762v7"
-]  # ,"1810.04805v2","2404.19756v4","2410.10630v1","2411.17703v1"]
-nb_section = 3
-begin_nb_question_per_section=2
-podcast_level = "expert"
-for article in list_articles:
+# list_articles = [
+#    # "2411.17703v1"
+#     "1706.03762v7"
+# ]  # ,"1810.04805v2","2404.19756v4","2410.10630v1","2411.17703v1"]
+# nb_section = 3
+# begin_nb_question_per_section=2
+# podcast_level = "expert"
+# for article in list_articles:
 
-    input = {"article_code":article,
-             "nb_section":nb_section,
-             "begin_nb_question_per_section":begin_nb_question_per_section,
-             "podcast_level":podcast_level
-             }
-    graph = build_graph(nb_section=nb_section,
-             begin_nb_question_per_section=begin_nb_question_per_section,
-             podcast_level=podcast_level)
-    graph_as_image = graph.get_graph().draw_mermaid_png()
-    with open("image.png", "wb") as f:
-        f.write(graph_as_image)
+#     input = {"article_code":article,
+#              "nb_section":nb_section,
+#              "begin_nb_question_per_section":begin_nb_question_per_section,
+#              "podcast_level":podcast_level
+#              }
+#     graph = build_graph(nb_section=nb_section,
+#              begin_nb_question_per_section=begin_nb_question_per_section,
+#              podcast_level=podcast_level)
+#     graph_as_image = graph.get_graph().draw_mermaid_png()
+#     with open("image.png", "wb") as f:
+#         f.write(graph_as_image)
 
-    result = graph.invoke({"podcast": {"paper": {"code": article}}}, {"recursion_limit": 100})
-    result["input"]=input
-    print(result)
+#     result = graph.invoke({"podcast": {"paper": {"code": article}}}, {"recursion_limit": 100})
+#     result["input"]=input
+#     print(result)
 
-    json_data = json.dumps(result, indent=4)  # indent for pretty printing, optional
+#     json_data = json.dumps(result, indent=4)  # indent for pretty printing, optional
 
-    # Save JSON string to a file
-    folder_json = str(Path(__file__).parent.parent / "data" / "pipeline_output")
-    json_files = []
-    for entry in os.scandir(folder_json):
-        if entry.name.startswith("%s" % article):
-            json_files.append(entry.name)
-    if len(json_files) > 0:
-        json_files.sort()
-        num = int(json_files[-1].split(".")[-2]) + 1
-    else:
-        num = 0
-    with open('%s/%s.%d.json'% (folder_json, article, num), 'w') as json_file:
-        json_file.write(json_data)
+#     # Save JSON string to a file
+#     folder_json = str(Path(__file__).parent.parent / "data" / "pipeline_output")
+#     json_files = []
+#     for entry in os.scandir(folder_json):
+#         if entry.name.startswith("%s" % article):
+#             json_files.append(entry.name)
+#     if len(json_files) > 0:
+#         json_files.sort()
+#         num = int(json_files[-1].split(".")[-2]) + 1
+#     else:
+#         num = 0
+#     with open('%s/%s.%d.json'% (folder_json, article, num), 'w') as json_file:
+#         json_file.write(json_data)
     
-    # Save txt file with readable trascript
-    result = transcript_to_full_text(result["podcast"]["transcript"])
-    print(result)
-    folder_transcripts = str(Path(__file__).parent.parent / "data" / "transcripts")
-    f_name = "%s/transcript_%s.%d.txt" % (folder_transcripts, article, num)
-    with open(f_name, "a") as f:
-        f.write(result)
+#     # Save txt file with readable trascript
+#     result = transcript_to_full_text(result["podcast"]["transcript"])
+#     print(result)
+#     folder_transcripts = str(Path(__file__).parent.parent / "data" / "transcripts")
+#     f_name = "%s/transcript_%s.%d.txt" % (folder_transcripts, article, num)
+#     with open(f_name, "a") as f:
+#         f.write(result)
+
+
+
+from langchain_core.prompts import ChatPromptTemplate
+find_sentence_type_system =  """You are the host of a podcast where you discuss a paper".
+The person listening to your podcast is talking to you."""
+
+find_sentence_type_user = """The person is saying: "{sentence}". 
+Classify what of the following option is true:
+1) the person is asking a question about the paper 
+2) the person is asking you to change the layout of the podcast or to change the topic to discuss
+
+If the correct option is 1) then print "question", if the correct option is 2) then print "directive", else print "NA".
+
+"""
+find_sentence_type_template = ChatPromptTemplate.from_messages(
+        [("system",find_sentence_type_system),("user", find_sentence_type_user)]
+    )
+
+def get_sentence_type(
+    model,
+    sentence: str,
+):
+    variables = {
+        "sentence": sentence,
+    }
+    
+    # Format the prompt with the variables
+    prompt = find_sentence_type_template.invoke(variables)
+    
+    # Get the model's response
+    response = model.invoke(prompt)
+    
+    if "question" in response.content:
+        sentence_type = 'Q' #question
+    elif "directive" in response.content:
+        sentence_type = 'D' #directive
+    else: sentence_type = 'NA'
+    return sentence_type
+
+class SentenceType:
+    def __init__(self):
+        self.model = get_chat_model()
+
+    def __call__(self,sentence: str):
+        sentence_type = get_sentence_type(
+            model=self.model,
+            sentence = sentence,
+        )
+        return sentence_type
+
+classifier = SentenceType()
+
+list_requests = ["What is attention?",
+                "Can you talk about results and skip the techincal desciption of the architecture?",
+                "do not speak about the results of the paper",
+                "Who is the president of USA?",
+                "What is LSTM?",
+                "What is space radiation?",
+                "How is the weather today?"
+]
+for request in list_requests:
+    print(request,": ",classifier(request))
