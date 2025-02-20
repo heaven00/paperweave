@@ -48,5 +48,7 @@ class MyState(TypedDict):
     podcast: Podcast = Podcast()
     index_question: int = 0
     index_section: int = 0
+    questions_asked: List[str] = []
     questions: List[str] = []
+    current_question: str = ""
     sections: List[str] = []

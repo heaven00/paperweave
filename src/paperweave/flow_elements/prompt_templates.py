@@ -138,3 +138,17 @@ Create a list of {nb_sections} sections (number_of_section), and {nb_questions_p
 find_sections_questions_template = ChatPromptTemplate.from_messages(
     [("system", find_sections_questions_system), ("user", find_sections_questions_user)]
 )
+
+
+choose_question_choice_system = """You are the host of a podcast where you discuss the paper titled "{paper_title}".
+You are an expert in the field, but you still create interesting podcast. You adjust the level of technicality of the podcast to {podcast_tech_level}.
+Decide the next thing you should do in the podcast to make an interesting podcast. You can ask a question from the list of questions, generate a new follow-up question
+or do not ask more questions(because they have already been answered before or because you think the podcast is ready for the next section.)"""
+
+choose_question_choice_user = """Decide the next thing you should do in the podcast to make an interesting podcast.
+The transcrip is {transcript} and the questions are
+{questions}
+"""
+choose_question_choice_template = ChatPromptTemplate.from_messages(
+    [("system", choose_question_choice_system), ("user", choose_question_choice_user)]
+)

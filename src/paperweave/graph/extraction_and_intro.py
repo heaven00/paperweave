@@ -52,6 +52,8 @@ class InitPodcast:
             state["podcast"]["transcript"] = []
         if "sections" not in state["podcast"]:
             state["podcast"]["sections"] = []
+        if "questions_asked" not in state:
+            state["questions_asked"] = []
 
         state["podcast"]["host"] = Persona(name="Jimmy")
         state["podcast"]["expert"] = Persona(name="Mike")
@@ -88,10 +90,7 @@ class GetSectionsAnsQuestions:
         return state
 
 
-
-def init_and_intro_graph(
-    podcast_level: str = "expert"
-):
+def init_and_intro_graph(podcast_level: str = "expert"):
     builder = StateGraph(MyState, input=MyState, output=MyState)
     # define nodes
     builder.add_node("get_paper", GetPaper())
