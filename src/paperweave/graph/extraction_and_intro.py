@@ -86,7 +86,7 @@ class GetSectionsAnsQuestions:
         state["sections"] = [
             section["section_subject"] for section in state["podcast"]["sections"]
         ]
-
+        
         return state
 
 

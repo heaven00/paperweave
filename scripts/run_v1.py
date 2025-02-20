@@ -1,0 +1,488 @@
+from typing import Annotated, List, Callable
+import json
+
+from langgraph.graph import StateGraph, START, END
+
+from paperweave.flow_elements.prompt_templates import (
+    create_questions_template,
+    create_intro_template,
+)
+from paperweave.flow_elements.flows import (
+    create_answer,
+    create_conclusion,
+    get_sections_questions,
+)
+from paperweave.transforms import extract_list, transcript_to_full_text
+from paperweave.data_type import MyState, Utterance, Persona, Paper, Podcast, Section
+from paperweave.get_data import get_arxiv_text, get_paper_title
+import os
+from langchain_openai import ChatOpenAI
+from langchain_ollama import ChatOllama
+from dotenv import load_dotenv
+from pathlib import Path
+
+env_file = Path(__file__).parent.parent / ".env"
+
+# Load the .env file
+load_dotenv(env_file)
+
+# Set your OpenAI API key by default it will set to empty string
+os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_KEY") or ""
+
+
+def get_questions(
+    model,
+    paper: Paper,
+    section: str,
+    nb_questions: int,
+    previous_sections: List[str],
+    future_sections: List[str],
+    podcast_tech_level: str,
+):
+    variables = {
+        "paper_title": paper["title"],
+        "podcast_tech_level": podcast_tech_level,
+        "paper": paper["text"],
+        "nb_questions": nb_questions,
+        "section": section,
+        "previous_sections": previous_sections,
+        "future_sections": future_sections,
+    }
+
+    # Format the prompt with the variables
+    prompt = create_questions_template.invoke(variables)
+
+    # Get the model's response
+    response = model.invoke(prompt)
+    questions = extract_list(response.content)
+    return questions
+
+
+# node
+class GetPaper:
+    def __call__(self, state: MyState) -> MyState:
+        code = state["podcast"]["paper"]["code"]
+        text = get_arxiv_text(code)
+        title = get_paper_title(code)
+        paper = Paper(text=text, code=code, title=title)
+        podcast = Podcast(paper=paper)
+        state = MyState(podcast=podcast, index_question=0, index_section=0)
+        return state
+
+
+class GetIntro:
+    def __init__(self, podcast_level="expert"):
+        self.model = get_chat_model()
+        self.podcast_tech_level = podcast_level
+
+    def __call__(self, state: MyState) -> MyState:
+        podcast = state["podcast"]
+        paper = podcast["paper"]
+        variables = {
+            "paper_title": paper["title"],
+            "podcast_tech_level": self.podcast_tech_level,
+            "paper": paper["text"],
+            "host_name": podcast["host"]["name"],
+            "expert_name": podcast["expert"]["name"],
+        }
+
+        prompt = create_intro_template.invoke(variables)
+        response = self.model.invoke(prompt)
+
+        intro = response.content
+
+        podcast["transcript"].append(
+            Utterance(persona=podcast["host"], speach=intro, category="introduction")
+        )
+        state["podcast"] = podcast
+
+        return state
+
+
+class GetSectiosQuestions:
+    def __init__(self, nb_section=5, nb_question_per_section=2, podcast_tech_level="expert"):
+        self.nb_section = nb_section
+        self.nb_question_per_section = nb_question_per_section
+        self.podcast_tech_level = podcast_tech_level
+        self.model = get_chat_model()
+
+    def __call__(self, state: MyState) -> MyState:
+        podcast = state["podcast"]
+        paper = podcast["paper"]
+        sections_questions = get_sections_questions(
+            model=self.model,
+            paper_title=paper["title"],
+            podcast_tech_level=self.podcast_tech_level,
+            paper=paper["text"],
+            nb_sections=self.nb_section,
+            nb_questions_per_section=self.nb_question_per_section
+        )
+        
+        state["sections"] = sections_questions
+        state["podcast"]
+        return state
+
+
+class GetExpertUtterance:
+    def __init__(self, podcast_tech_level: str = "expert"):
+        self.model = get_chat_model()
+        self.podcast_tech_level = podcast_tech_level
+
+    def __call__(self, state: MyState) -> MyState:
+        id_question = state["index_question"]
+        id_section = state["index_section"]
+        podcast = state["podcast"]
+        question = state["questions"][id_question]
+
+        previous_question = "no previous question"
+        previous_answer = "no previous answer"
+        if podcast["transcript"]:
+            if podcast["transcript"][-1]["persona"] == "expert":
+                previous_answer = podcast["transcript"][-1]["speach"]
+                previous_question = podcast["transcript"][-2]["speach"]
+
+        podcast["transcript"].append(
+            Utterance(persona=podcast["host"], speach=question, category="question")
+        )
+
+        paper_title = podcast["paper"]["title"]
+        paper_text = podcast["paper"]["text"]
+
+        answer = create_answer(
+            model=self.model,
+            paper_title=paper_title,
+            podcast_tech_level=self.podcast_tech_level,
+            paper=paper_text,
+            previous_question=previous_question,
+            previous_answer=previous_answer,
+            new_question=question,
+        )
+
+        podcast["transcript"].append(
+            Utterance(persona=podcast["expert"], speach=answer, category="answer")
+        )
+
+        print(state["index_question"])
+        state["index_question"] = state["index_question"] + 1
+        return state
+
+
+def get_chat_model() -> ChatOllama | ChatOpenAI:
+    if os.environ["OPENAI_API_KEY"]:
+        return ChatOpenAI(model="gpt-4o-mini")
+    else:
+        return ChatOllama(model="mistral-small:latest")
+
+
+class GetQuestionsForSection:
+    def __init__(self, nb_question_per_section=1, podcast_tech_level="expert"):
+        self.model = get_chat_model()
+        self.nb_question_per_section = nb_question_per_section
+        self.podcast_tech_level = podcast_tech_level
+
+    def __call__(self, state: MyState) -> MyState:
+        podcast = state["podcast"]
+        paper = podcast["paper"]
+        index_section = state["index_section"]
+        all_sections = state["sections"]
+        previous_sections = all_sections[:index_section]
+        section = all_sections[index_section]
+        future_sections = all_sections[index_section + 1 :]
+        questions = get_questions(
+            model=self.model,
+            paper=paper,
+            nb_questions=self.nb_question_per_section,
+            section=section,
+            previous_sections=previous_sections,
+            future_sections=future_sections,
+            podcast_tech_level="expert",
+        )
+        state["questions"] = questions
+        section = Section(section_string=section, section_starting_questions=questions)
+        state["podcast"]["sections"].append(section)
+        return state
+
+
+class InitPodcast:
+    def __call__(self, state: MyState):
+        if "transcript" not in state["podcast"]:
+            state["podcast"]["transcript"] = []
+        if "sections" not in state["podcast"]:
+            state["podcast"]["sections"] = []
+
+        state["podcast"]["host"] = Persona(name="Jimmy")
+        state["podcast"]["expert"] = Persona(name="Mike")
+
+        return state
+
+
+class EndSection:
+    def __call__(self, state: MyState) -> MyState:
+        state["index_section"] = state["index_section"] + 1
+        state["index_question"] = 0
+        return state
+
+
+class Conclusion:
+    def __init__(self, podcast_tech_level: str = "expert"):
+        self.model = get_chat_model()
+        self.podcast_tech_level = podcast_tech_level
+
+    def __call__(self, state: MyState) -> MyState:
+        podcast = state["podcast"]
+        paper_title = state["podcast"]["paper"]["title"]
+        paper_text = state["podcast"]["paper"]["text"]
+        transcript = transcript_to_full_text(state["podcast"]["transcript"])
+        conclusion_text = create_conclusion(
+            model=self.model,
+            paper_title=paper_title,
+            podcast_tech_level=self.podcast_tech_level,
+            paper=paper_text,
+            podcast_transcript=transcript,
+        )
+        state["podcast"]["transcript"].append(
+            Utterance(
+                persona=podcast["host"], speach=conclusion_text, category="conclusion"
+            )
+        )
+
+
+def loop_list_condition(index_name: str, list_name: int) -> Callable:
+    def should_continue(state: MyState) -> bool:
+        return state[index_name] < len(state[list_name])
+
+    return should_continue
+
+
+
+def build_graph(nb_section:int=2, begin_nb_question_per_section:int=2, podcast_level:str="expert"):
+    builder = StateGraph(MyState, input=MyState, output=MyState)
+    # define nodes
+    builder.add_node("get_paper", GetPaper())
+    builder.add_node("init_podcast", InitPodcast())
+    builder.add_node("intro_podcast", GetIntro(podcast_level=podcast_level))
+    builder.add_node("get_sections_questions", GetSectiosQuestions(nb_section=nb_section, 
+                                                                nb_question_per_section=begin_nb_question_per_section,
+                                                                podcast_tech_level=podcast_level))
+    builder.add_node("get_utterance", GetExpertUtterance(podcast_tech_level=podcast_level))
+    #builder.add_node("end_section", EndSection())
+    builder.add_node("conclusion", Conclusion(podcast_tech_level=podcast_level))
+    # define edges
+    builder.add_edge(START, "get_paper")
+    builder.add_edge("get_paper", "init_podcast")
+    builder.add_edge("init_podcast", "intro_podcast")
+    builder.add_edge("intro_podcast", "get_sections_questions")
+    builder.add_edge("get_sections_questions", "get_utterance")
+    # builder.add_conditional_edges(
+    #    "get_utterance",
+    #    loop_list_condition(index_name="index_question", list_name="questions"),
+    #    {True: "get_utterance", False: "end_section"},
+    # )
+    # builder.add_conditional_edges(
+    #    "end_section",
+    #    loop_list_condition(index_name="index_section", list_name="sections"),
+    #    {True: "get_question", False: "conclusion"},
+    # )
+    builder.add_edge("get_utterance", "conclusion")
+    builder.add_edge("conclusion", END)
+    # builder.add_edge("get_sections_questions", END)
+    graph = builder.compile()
+
+    return graph
+
+
+############################################################################################
+
+# list_articles = [
+#    # "2411.17703v1"
+#     "1706.03762v7"
+# ]  # ,"1810.04805v2","2404.19756v4","2410.10630v1","2411.17703v1"]
+# nb_section = 3
+# begin_nb_question_per_section=2
+# podcast_level = "expert"
+# for article in list_articles:
+
+#     input = {"article_code":article,
+#              "nb_section":nb_section,
+#              "begin_nb_question_per_section":begin_nb_question_per_section,
+#              "podcast_level":podcast_level
+#              }
+#     graph = build_graph(nb_section=nb_section,
+#              begin_nb_question_per_section=begin_nb_question_per_section,
+#              podcast_level=podcast_level)
+#     graph_as_image = graph.get_graph().draw_mermaid_png()
+#     with open("image.png", "wb") as f:
+#         f.write(graph_as_image)
+
+#     result = graph.invoke({"podcast": {"paper": {"code": article}}}, {"recursion_limit": 100})
+#     result["input"]=input
+#     print(result)
+
+#     json_data = json.dumps(result, indent=4)  # indent for pretty printing, optional
+
+#     # Save JSON string to a file
+#     folder_json = str(Path(__file__).parent.parent / "data" / "pipeline_output")
+#     json_files = []
+#     for entry in os.scandir(folder_json):
+#         if entry.name.startswith("%s" % article):
+#             json_files.append(entry.name)
+#     if len(json_files) > 0:
+#         json_files.sort()
+#         num = int(json_files[-1].split(".")[-2]) + 1
+#     else:
+#         num = 0
+#     with open('%s/%s.%d.json'% (folder_json, article, num), 'w') as json_file:
+#         json_file.write(json_data)
+    
+#     # Save txt file with readable trascript
+#     result = transcript_to_full_text(result["podcast"]["transcript"])
+#     print(result)
+#     folder_transcripts = str(Path(__file__).parent.parent / "data" / "transcripts")
+#     f_name = "%s/transcript_%s.%d.txt" % (folder_transcripts, article, num)
+#     with open(f_name, "a") as f:
+#         f.write(result)
+
+############## CLASSIFY INPUT FROM LISTENER ################
+
+from langchain_core.prompts import ChatPromptTemplate
+find_sentence_type_system =  """You are the host of a podcast where you discuss a paper".
+The person listening to your podcast is talking to you."""
+
+find_sentence_type_user = """The person is saying: "{sentence}". 
+Classify what of the following option is true:
+1) the person is asking a question about the paper 
+2) the person is asking you to change the layout of the podcast or to change the topic to discuss
+
+If the correct option is 1) then print "question", if the correct option is 2) then print "directive", else print "NA".
+
+"""
+find_sentence_type_template = ChatPromptTemplate.from_messages(
+        [("system",find_sentence_type_system),("user", find_sentence_type_user)]
+    )
+
+def get_sentence_type(
+    model,
+    sentence: str,
+):
+    variables = {
+        "sentence": sentence,
+    }
+    
+    # Format the prompt with the variables
+    prompt = find_sentence_type_template.invoke(variables)
+    
+    # Get the model's response
+    response = model.invoke(prompt)
+    
+    if "question" in response.content:
+        sentence_type = 'Q' #question
+    elif "directive" in response.content:
+        sentence_type = 'D' #directive
+    else: sentence_type = 'NA'
+    return sentence_type
+
+class SentenceType:
+    def __init__(self):
+        self.model = get_chat_model()
+
+    def __call__(self,sentence: str):
+        sentence_type = get_sentence_type(
+            model=self.model,
+            sentence = sentence,
+        )
+        return sentence_type
+
+classifier = SentenceType()
+
+list_requests = ["What is attention?",
+                "Can you talk about results and skip the techincal desciption of the architecture?",
+                "do not speak about the results of the paper",
+                "Who is the president of USA?",
+                "What is LSTM?",
+                "What is space radiation?",
+                "How is the weather today?"
+]
+for request in list_requests:
+    print(request,": ",classifier(request))
+
+
+################## MODIFY SECTIONS AND QUESTIONS ##############
+
+class ModifySectionsQuestions:
+    def __init__(self, nb_section=5, nb_question_per_section=2, podcast_tech_level="expert", sentence="",
+    ):
+        self.nb_section = nb_section
+        self.nb_question_per_section = nb_question_per_section
+        self.podcast_tech_level = podcast_tech_level
+        self.model = get_chat_model()
+        self.sentence = sentence
+
+    def __call__(self, state: MyState) -> MyState:
+        podcast = state["podcast"]
+        paper = podcast["paper"]
+        index_section = state["index_section"]
+        previous_sections = state["sections"][:index_section+1] #previous+current
+        modify_section_and_question = get_modified_sections_questions(
+            model=self.model,
+            paper_title=paper["title"],
+            podcast_tech_level=self.podcast_tech_level,
+            paper=paper["text"],
+            nb_sections=self.nb_section-index_section,
+            nb_questions_per_section=self.nb_question_per_section,
+            previous_sections = previous_sections,
+            sentence = self.sentence,
+        )
+        #update the podcast.sections and sections fields and the index_section
+        state["podcast"]["sections"] = state["podcast"]["sections"][:index_section+1]
+        state["podcast"]["sections"] += modify_section_and_question.model_dump()["sections"]
+         [
+        state["sections"] = section["section_subject"] for section in state["podcast"]["sections"]
+        ]
+        state["index_section"] +=1 
+
+        return state
+
+def get_modified_sections_questions(
+    model,
+    paper_title: str,
+    podcast_tech_level: str,
+    paper: str,
+    nb_sections: int,
+    nb_questions_per_section: int,
+    previous_sections,
+    sentence: str,
+) -> SectionQuestionLLMOutput:
+    variables = {
+        "paper_title": paper_title,
+        "podcast_tech_level": podcast_tech_level,
+        "paper": paper,
+        "nb_sections": nb_sections,
+        "nb_questions_per_section": nb_questions_per_section,
+        "previous_sections": previous_sections,
+        "sentence": sentence,
+    }
+
+    prompt = modify_sections_questions_template.invoke(variables)
+
+    model_with_structure = model.with_structured_output(SectionQuestionLLMOutput)
+    response = model_with_structure.invoke(prompt)
+    result = response.model_dump()
+    return response
+
+modify_sections_questions_template = """You are the host of a podcast where you discuss the paper titled "{paper_title}".
+You are an expert in the field, but you still create interesting podcast. You adjust the level of technicality of the podcast to {podcast_tech_level}.
+Generate a list of sections of the podcast and questions to be asked to make it an interesting podcast."""
+
+modify_sections_questions_user = """Create a list of sections of the podcast. Each section should contain questions to be asked.  
+DO NOT FOLLOW THE STRUCTURE OF THE PAPER. MAKE IT THE STRUCTURE OF AN INTERESTING PODCAST! 
+
+Create a list of {nb_sections} sections (number_of_section) that will follow the sections:
+{previuos_sections}
+and take into account the following directive:
+{sentence}
+For each newly created section, generate {nb_questions_per_section} questions (number_of_question) to discuss the paper:
+{paper}
+"""
+modify_sections_questions_template = ChatPromptTemplate.from_messages(
+    [("system", modify_sections_questions_template), ("user", modify_sections_questions_user)]
+)
