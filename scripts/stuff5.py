@@ -129,6 +129,71 @@ class GetSectionsAnsQuestions:
         return state
 
 
+class HostUttterance:
+    def __init__(self, podcast_tech_level: str = "expert"):
+        self.model = get_chat_model()
+        self.podcast_tech_level = podcast_tech_level
+
+    def __call__(self, state: MyState):
+        id_question = state["index_question"]
+        podcast = state["podcast"]
+        question = state["questions"][id_question]
+        state["current_question"] = question
+
+        podcast["transcript"].append(
+            Utterance(persona=podcast["host"], speach=question, category="question")
+        )
+        return state
+
+
+class ExpertUttterance:
+    def __init__(self, podcast_tech_level: str = "expert"):
+        self.model = get_chat_model()
+        self.podcast_tech_level = podcast_tech_level
+
+    def __call__(self, state: MyState):
+        podcast = state["podcast"]
+        paper_title = podcast["paper"]["title"]
+        paper_text = podcast["paper"]["text"]
+        question = state["current_question"]
+
+        previous_question = "no previous question"
+        previous_answer = "no previous answer"
+        if podcast["transcript"]:
+            if podcast["transcript"][-1]["persona"] == "expert":
+                previous_answer = podcast["transcript"][-1]["speach"]
+                previous_question = podcast["transcript"][-2]["speach"]
+
+        answer = create_answer(
+            model=self.model,
+            paper_title=paper_title,
+            podcast_tech_level=self.podcast_tech_level,
+            paper=paper_text,
+            previous_question=previous_question,
+            previous_answer=previous_answer,
+            new_question=question,
+        )
+
+        podcast["transcript"].append(
+            Utterance(persona=podcast["expert"], speach=answer, category="answer")
+        )
+
+        print(state["index_question"])
+        state["index_question"] = state["index_question"] + 1
+        return state
+
+
+def get_utterance_subgraph(podcast_tech_level: str = "expert"):
+    builder = StateGraph(MyState, input=MyState, output=MyState)
+    builder.add_node("host", HostUttterance(podcast_tech_level=podcast_tech_level))
+    builder.add_node("expert", ExpertUttterance(podcast_tech_level=podcast_level))
+    builder.add_edge(START, "host")
+    builder.add_edge("host", "expert")
+    builder.add_edge("expert", END)
+    graph = builder.compile()
+    return graph
+
+
 class GetExpertUtterance:
     def __init__(self, podcast_tech_level: str = "expert"):
         self.model = get_chat_model()
@@ -268,7 +333,7 @@ def build_graph(
         GetQuestionsForSection(),
     )
     builder.add_node(
-        "get_utterance", GetExpertUtterance(podcast_tech_level=podcast_level)
+        "get_utterance", get_utterance_subgraph(podcast_tech_level=podcast_level)
     )
     builder.add_node("end_section", EndSection())
     builder.add_node("conclusion", Conclusion(podcast_tech_level=podcast_level))
