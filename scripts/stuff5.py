@@ -21,6 +21,7 @@ from langchain_openai import ChatOpenAI
 from langchain_ollama import ChatOllama
 from dotenv import load_dotenv
 from pathlib import Path
+from copy import copy
 
 env_file = Path(__file__).parent.parent / ".env"
 
@@ -36,6 +37,7 @@ from paperweave.graph.extraction_and_intro import (
     GetPaper,
     GetIntro,
     GetSectionsAnsQuestions,
+    InitPodcast,
 )
 
 
@@ -45,10 +47,10 @@ class HostUttterance:
         self.podcast_tech_level = podcast_tech_level
 
     def __call__(self, state: MyState):
-        id_question = state["index_question"]
         podcast = state["podcast"]
-        question = state["questions"][id_question]
+        question = state["questions"].pop(0)
         state["current_question"] = question
+        state["questions_asked"].append(state["current_question"])
 
         podcast["transcript"].append(
             Utterance(persona=podcast["host"], speach=question, category="question")
@@ -115,20 +117,9 @@ class GetQuestionsForSection:
         index_section = state["index_section"]
 
         questions = podcast["sections"][index_section]["questions"]
-        state["questions"] = questions
-        return state
-
-
-class InitPodcast:
-    def __call__(self, state: MyState):
-        if "transcript" not in state["podcast"]:
-            state["podcast"]["transcript"] = []
-        if "sections" not in state["podcast"]:
-            state["podcast"]["sections"] = []
-
-        state["podcast"]["host"] = Persona(name="Jimmy")
-        state["podcast"]["expert"] = Persona(name="Mike")
-
+        state["questions"] = [
+            question for question in questions
+        ]  # simple way to make a copy of the list
         return state
 
 
@@ -170,6 +161,13 @@ def loop_list_condition(index_name: str, list_name: int) -> Callable:
     return should_continue
 
 
+def loop_non_empty_list(list_name: str) -> Callable:
+    def should_continue(state: MyState) -> bool:
+        return bool(state[list_name])
+
+    return should_continue
+
+
 def build_graph(
     nb_section: int = 2,
     begin_nb_question_per_section: int = 2,
@@ -206,7 +204,7 @@ def build_graph(
     builder.add_edge("get_question", "get_utterance")
     builder.add_conditional_edges(
         "get_utterance",
-        loop_list_condition(index_name="index_question", list_name="questions"),
+        loop_non_empty_list(list_name="questions"),
         {True: "get_utterance", False: "end_section"},
     )
     builder.add_conditional_edges(
