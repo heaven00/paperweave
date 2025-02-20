@@ -342,7 +342,7 @@ def build_graph(nb_section:int=2, begin_nb_question_per_section:int=2, podcast_l
 #     with open(f_name, "a") as f:
 #         f.write(result)
 
-
+############## CLASSIFY INPUT FROM LISTENER ################
 
 from langchain_core.prompts import ChatPromptTemplate
 find_sentence_type_system =  """You are the host of a podcast where you discuss a paper".
@@ -406,29 +406,83 @@ for request in list_requests:
     print(request,": ",classifier(request))
 
 
+################## MODIFY SECTIONS AND QUESTIONS ##############
+
 class ModifySectionsQuestions:
-    def __init__(self, nb_section=5, nb_question_per_section=2, podcast_tech_level="expert"
+    def __init__(self, nb_section=5, nb_question_per_section=2, podcast_tech_level="expert", sentence="",
     ):
         self.nb_section = nb_section
         self.nb_question_per_section = nb_question_per_section
         self.podcast_tech_level = podcast_tech_level
         self.model = get_chat_model()
+        self.sentence = sentence
 
     def __call__(self, state: MyState) -> MyState:
         podcast = state["podcast"]
         paper = podcast["paper"]
+        index_section = state["index_section"]
+        previous_sections = state["sections"][:index_section+1] #previous+current
         modify_section_and_question = get_modified_sections_questions(
             model=self.model,
             paper_title=paper["title"],
             podcast_tech_level=self.podcast_tech_level,
             paper=paper["text"],
-            nb_sections=self.nb_section,
-            nb_questions_per_section=self.nb_question_per_section
+            nb_sections=self.nb_section-index_section,
+            nb_questions_per_section=self.nb_question_per_section,
+            previous_sections = previous_sections,
+            sentence = self.sentence,
         )
-        
-        state["podcast"]["sections"] = section_and_question.model_dump()["sections"]
-        state["sections"] = [
-            section["section_subject"] for section in state["podcast"]["sections"]
+        #update the podcast.sections and sections fields and the index_section
+        state["podcast"]["sections"] = state["podcast"]["sections"][:index_section+1]
+        state["podcast"]["sections"] += modify_section_and_question.model_dump()["sections"]
+         [
+        state["sections"] = section["section_subject"] for section in state["podcast"]["sections"]
         ]
-        
+        state["index_section"] +=1 
+
         return state
+
+def get_modified_sections_questions(
+    model,
+    paper_title: str,
+    podcast_tech_level: str,
+    paper: str,
+    nb_sections: int,
+    nb_questions_per_section: int,
+    previous_sections,
+    sentence: str,
+) -> SectionQuestionLLMOutput:
+    variables = {
+        "paper_title": paper_title,
+        "podcast_tech_level": podcast_tech_level,
+        "paper": paper,
+        "nb_sections": nb_sections,
+        "nb_questions_per_section": nb_questions_per_section,
+        "previous_sections": previous_sections,
+        "sentence": sentence,
+    }
+
+    prompt = modify_sections_questions_template.invoke(variables)
+
+    model_with_structure = model.with_structured_output(SectionQuestionLLMOutput)
+    response = model_with_structure.invoke(prompt)
+    result = response.model_dump()
+    return response
+
+modify_sections_questions_template = """You are the host of a podcast where you discuss the paper titled "{paper_title}".
+You are an expert in the field, but you still create interesting podcast. You adjust the level of technicality of the podcast to {podcast_tech_level}.
+Generate a list of sections of the podcast and questions to be asked to make it an interesting podcast."""
+
+modify_sections_questions_user = """Create a list of sections of the podcast. Each section should contain questions to be asked.  
+DO NOT FOLLOW THE STRUCTURE OF THE PAPER. MAKE IT THE STRUCTURE OF AN INTERESTING PODCAST! 
+
+Create a list of {nb_sections} sections (number_of_section) that will follow the sections:
+{previuos_sections}
+and take into account the following directive:
+{sentence}
+For each newly created section, generate {nb_questions_per_section} questions (number_of_question) to discuss the paper:
+{paper}
+"""
+modify_sections_questions_template = ChatPromptTemplate.from_messages(
+    [("system", modify_sections_questions_template), ("user", modify_sections_questions_user)]
+)
