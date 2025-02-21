@@ -294,7 +294,7 @@ def build_graph(
             nb_section=nb_section, 
             nb_question_per_section=begin_nb_question_per_section, 
             podcast_tech_level=podcast_level, 
-            sentence="Speak about the paper's results",
+            sentence="Speak about the paper's results", # !! Here the listener's input is hard coded
         ),
     )
     builder.add_node("time_to_modify_flow", Dummy())
