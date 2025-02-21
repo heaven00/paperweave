@@ -177,7 +177,6 @@ def get_sections_questions(
 
     model_with_structure = model.with_structured_output(SectionQuestionLLMOutput)
     response = model_with_structure.invoke(prompt)
-    result = response.model_dump()
     return response
 
 
