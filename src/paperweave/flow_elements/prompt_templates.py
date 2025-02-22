@@ -152,3 +152,41 @@ The transcrip is {transcript} and the questions are
 choose_question_choice_template = ChatPromptTemplate.from_messages(
     [("system", choose_question_choice_system), ("user", choose_question_choice_user)]
 )
+
+
+
+find_sentence_type_system =  """You are the host of a podcast where you discuss a paper".
+The person listening to your podcast is talking to you."""
+
+find_sentence_type_user = """The person is saying: "{sentence}". 
+Classify what of the following option is true:
+1) the person is asking a question about the paper 
+2) the person is asking you to change the layout of the podcast or to change the topic to discuss
+
+If the correct option is 1) then print "question", if the correct option is 2) then print "directive", else print "NA".
+
+"""
+find_sentence_type_template = ChatPromptTemplate.from_messages(
+        [("system",find_sentence_type_system),("user", find_sentence_type_user)]
+    )
+
+
+
+modify_sections_questions_template = """You are the host of a podcast where you discuss the paper titled "{paper_title}".
+You are an expert in the field, but you still create interesting podcast. You adjust the level of technicality of the podcast to {podcast_tech_level}.
+Generate a list of sections of the podcast and questions to be asked to make it an interesting podcast."""
+
+modify_sections_questions_user = """Create a list of sections of the podcast. Each section should contain questions to be asked.  
+DO NOT FOLLOW THE STRUCTURE OF THE PAPER. MAKE IT THE STRUCTURE OF AN INTERESTING PODCAST! 
+
+Create a list of {nb_sections} sections (number_of_section) that will follow the sections:
+{previous_sections}
+and take into account the following directive:
+{sentence}
+For each newly created section, generate {nb_questions_per_section} questions (number_of_question) to discuss the paper:
+{paper}
+"""
+
+modify_sections_questions_template = ChatPromptTemplate.from_messages(
+    [("system", modify_sections_questions_template), ("user", modify_sections_questions_user)]
+)

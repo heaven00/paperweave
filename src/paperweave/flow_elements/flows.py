@@ -9,6 +9,8 @@ from paperweave.flow_elements.prompt_templates import (
     host_conclusion_template,
     find_sections_questions_template,
     choose_question_choice_template,
+    find_sentence_type_template,
+    modify_sections_questions_template,
 )
 from paperweave.transforms import extract_list
 from paperweave.data_type_direct_llm_call import (
@@ -200,4 +202,53 @@ def get_question_choice(
     model_with_structure = model.with_structured_output(LLMResponseQuestionChoice)
     response = model_with_structure.invoke(prompt)
     result = response.model_dump()
+    return response
+
+
+def get_sentence_type(
+    model,
+    sentence: str,
+):
+    variables = {
+        "sentence": sentence,
+    }
+    
+    # Format the prompt with the variables
+    prompt = find_sentence_type_template.invoke(variables)
+    
+    # Get the model's response
+    response = model.invoke(prompt)
+    
+    if "question" in response.content:
+        sentence_type = 'user_question' #question
+    elif "directive" in response.content:
+        sentence_type = 'user_directive' #directive
+    else: sentence_type = 'user_NA'
+    return sentence_type
+
+
+def get_modified_sections_questions(
+    model,
+    paper_title: str,
+    podcast_tech_level: str,
+    paper: str,
+    nb_sections: int,
+    nb_questions_per_section: int,
+    previous_sections,
+    sentence: str,
+) -> SectionQuestionLLMOutput:
+    variables = {
+        "paper_title": paper_title,
+        "podcast_tech_level": podcast_tech_level,
+        "paper": paper,
+        "nb_sections": nb_sections,
+        "nb_questions_per_section": nb_questions_per_section,
+        "previous_sections": previous_sections,
+        "sentence": sentence,
+    }
+
+    prompt = modify_sections_questions_template.invoke(variables)
+
+    model_with_structure = model.with_structured_output(SectionQuestionLLMOutput)
+    response = model_with_structure.invoke(prompt)
     return response

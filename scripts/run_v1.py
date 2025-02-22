@@ -11,6 +11,8 @@ from paperweave.flow_elements.flows import (
     create_answer,
     create_conclusion,
     get_sections_questions,
+    get_sentence_type,
+    get_modified_sections_questions,
 )
 from paperweave.transforms import extract_list, transcript_to_full_text
 from paperweave.data_type import MyState, Utterance, Persona, Paper, Podcast, Section
@@ -167,55 +169,55 @@ class ModifySectionsQuestions:
 
         return state
 
-from paperweave.data_type_direct_llm_call import (
-    SectionQuestionLLMOutput,
-    LLMResponseQuestionChoice,
-)
-def get_modified_sections_questions(
-    model,
-    paper_title: str,
-    podcast_tech_level: str,
-    paper: str,
-    nb_sections: int,
-    nb_questions_per_section: int,
-    previous_sections,
-    sentence: str,
-) -> SectionQuestionLLMOutput:
-    variables = {
-        "paper_title": paper_title,
-        "podcast_tech_level": podcast_tech_level,
-        "paper": paper,
-        "nb_sections": nb_sections,
-        "nb_questions_per_section": nb_questions_per_section,
-        "previous_sections": previous_sections,
-        "sentence": sentence,
-    }
+# from paperweave.data_type_direct_llm_call import (
+#     SectionQuestionLLMOutput,
+#     LLMResponseQuestionChoice,
+# )
+# def get_modified_sections_questions(
+#     model,
+#     paper_title: str,
+#     podcast_tech_level: str,
+#     paper: str,
+#     nb_sections: int,
+#     nb_questions_per_section: int,
+#     previous_sections,
+#     sentence: str,
+# ) -> SectionQuestionLLMOutput:
+#     variables = {
+#         "paper_title": paper_title,
+#         "podcast_tech_level": podcast_tech_level,
+#         "paper": paper,
+#         "nb_sections": nb_sections,
+#         "nb_questions_per_section": nb_questions_per_section,
+#         "previous_sections": previous_sections,
+#         "sentence": sentence,
+#     }
 
-    prompt = modify_sections_questions_template.invoke(variables)
+#     prompt = modify_sections_questions_template.invoke(variables)
 
-    model_with_structure = model.with_structured_output(SectionQuestionLLMOutput)
-    response = model_with_structure.invoke(prompt)
-    return response
+#     model_with_structure = model.with_structured_output(SectionQuestionLLMOutput)
+#     response = model_with_structure.invoke(prompt)
+#     return response
 
-modify_sections_questions_template = """You are the host of a podcast where you discuss the paper titled "{paper_title}".
-You are an expert in the field, but you still create interesting podcast. You adjust the level of technicality of the podcast to {podcast_tech_level}.
-Generate a list of sections of the podcast and questions to be asked to make it an interesting podcast."""
+# modify_sections_questions_template = """You are the host of a podcast where you discuss the paper titled "{paper_title}".
+# You are an expert in the field, but you still create interesting podcast. You adjust the level of technicality of the podcast to {podcast_tech_level}.
+# Generate a list of sections of the podcast and questions to be asked to make it an interesting podcast."""
 
-modify_sections_questions_user = """Create a list of sections of the podcast. Each section should contain questions to be asked.  
-DO NOT FOLLOW THE STRUCTURE OF THE PAPER. MAKE IT THE STRUCTURE OF AN INTERESTING PODCAST! 
+# modify_sections_questions_user = """Create a list of sections of the podcast. Each section should contain questions to be asked.  
+# DO NOT FOLLOW THE STRUCTURE OF THE PAPER. MAKE IT THE STRUCTURE OF AN INTERESTING PODCAST! 
 
-Create a list of {nb_sections} sections (number_of_section) that will follow the sections:
-{previous_sections}
-and take into account the following directive:
-{sentence}
-For each newly created section, generate {nb_questions_per_section} questions (number_of_question) to discuss the paper:
-{paper}
-"""
+# Create a list of {nb_sections} sections (number_of_section) that will follow the sections:
+# {previous_sections}
+# and take into account the following directive:
+# {sentence}
+# For each newly created section, generate {nb_questions_per_section} questions (number_of_question) to discuss the paper:
+# {paper}
+# """
 
-from langchain_core.prompts import ChatPromptTemplate
-modify_sections_questions_template = ChatPromptTemplate.from_messages(
-    [("system", modify_sections_questions_template), ("user", modify_sections_questions_user)]
-)
+# from langchain_core.prompts import ChatPromptTemplate
+# modify_sections_questions_template = ChatPromptTemplate.from_messages(
+#     [("system", modify_sections_questions_template), ("user", modify_sections_questions_user)]
+# )
 
 #############################
     
@@ -389,42 +391,42 @@ for article in list_articles:
 
 ############## CLASSIFY INPUT FROM LISTENER ################
 
-from langchain_core.prompts import ChatPromptTemplate
-find_sentence_type_system =  """You are the host of a podcast where you discuss a paper".
-The person listening to your podcast is talking to you."""
+# from langchain_core.prompts import ChatPromptTemplate
+# find_sentence_type_system =  """You are the host of a podcast where you discuss a paper".
+# The person listening to your podcast is talking to you."""
 
-find_sentence_type_user = """The person is saying: "{sentence}". 
-Classify what of the following option is true:
-1) the person is asking a question about the paper 
-2) the person is asking you to change the layout of the podcast or to change the topic to discuss
+# find_sentence_type_user = """The person is saying: "{sentence}". 
+# Classify what of the following option is true:
+# 1) the person is asking a question about the paper 
+# 2) the person is asking you to change the layout of the podcast or to change the topic to discuss
 
-If the correct option is 1) then print "question", if the correct option is 2) then print "directive", else print "NA".
+# If the correct option is 1) then print "question", if the correct option is 2) then print "directive", else print "NA".
 
-"""
-find_sentence_type_template = ChatPromptTemplate.from_messages(
-        [("system",find_sentence_type_system),("user", find_sentence_type_user)]
-    )
+# """
+# find_sentence_type_template = ChatPromptTemplate.from_messages(
+#         [("system",find_sentence_type_system),("user", find_sentence_type_user)]
+#     )
 
-def get_sentence_type(
-    model,
-    sentence: str,
-):
-    variables = {
-        "sentence": sentence,
-    }
+# def get_sentence_type(
+#     model,
+#     sentence: str,
+# ):
+#     variables = {
+#         "sentence": sentence,
+#     }
     
-    # Format the prompt with the variables
-    prompt = find_sentence_type_template.invoke(variables)
+#     # Format the prompt with the variables
+#     prompt = find_sentence_type_template.invoke(variables)
     
-    # Get the model's response
-    response = model.invoke(prompt)
+#     # Get the model's response
+#     response = model.invoke(prompt)
     
-    if "question" in response.content:
-        sentence_type = 'Q' #question
-    elif "directive" in response.content:
-        sentence_type = 'D' #directive
-    else: sentence_type = 'NA'
-    return sentence_type
+#     if "question" in response.content:
+#         sentence_type = 'Q' #question
+#     elif "directive" in response.content:
+#         sentence_type = 'D' #directive
+#     else: sentence_type = 'NA'
+#     return sentence_type
 
 class SentenceType:
     def __init__(self):
