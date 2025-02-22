@@ -90,22 +90,6 @@ class GetSectionsAnsQuestions:
         return state
 
 
-class GetQuestionsForSection:
-    def __init__(self, nb_question_per_section=1, podcast_tech_level="expert"):
-        self.model = get_chat_model()
-        self.nb_question_per_section = nb_question_per_section
-        self.podcast_tech_level = podcast_tech_level
-
-    def __call__(self, state: MyState) -> MyState:
-        podcast = state["podcast"]
-        index_section = state["index_section"]
-
-        questions = podcast["sections"][index_section]["questions"]
-        state["questions"] = [
-            question for question in questions
-        ]  # simple way to make a copy of the list
-        return state
-
 
 def init_and_intro_graph(podcast_level: str = "expert"):
     builder = StateGraph(MyState, input=MyState, output=MyState)
@@ -119,17 +103,13 @@ def init_and_intro_graph(podcast_level: str = "expert"):
             podcast_tech_level=podcast_level,
         ),
     )
-    builder.add_node(
-        "get_question",
-        GetQuestionsForSection(),
-    )
+   
 
     # define edges
     builder.add_edge(START, "get_paper")
     builder.add_edge("get_paper", "init_podcast")
     builder.add_edge("init_podcast", "intro_podcast")
     builder.add_edge("intro_podcast", "get_sections")
-    builder.add_edge("get_sections", "get_question")
-    builder.add_edge("get_question", END)
+    builder.add_edge("get_sections", END)
 
     return builder.compile()
