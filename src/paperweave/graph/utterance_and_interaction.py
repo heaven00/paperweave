@@ -1,6 +1,6 @@
 from paperweave.data_type import MyState, Utterance
-from paperweave.flow_elements.flows import create_answer
-from paperweave.model import get_chat_model, get_sentence_type, get_modified_sections_questions
+from paperweave.flow_elements.flows import create_answer,  get_sentence_type, get_modified_sections_questions
+from paperweave.model import get_chat_model
 from langgraph.graph import StateGraph, START, MessagesState
 from langgraph.types import Command, interrupt
 from langgraph.checkpoint.memory import MemorySaver
@@ -131,10 +131,11 @@ def get_utterance_graph(podcast_tech_level: str = "expert"):
     builder.add_node("human", human_node)
     builder.add_node("sentence_type", SentenceType)
     builder.add_node("modify_flow", ModifySectionsQuestions)
-    
+
     builder.add_edge(START, "host")
     builder.add_edge("host", "expert")
-    builder.add_edge("expert", "sentence_type")
+    builder.add_edge("expert", "human")
+    builder.add_edge("human","sentence_type")
     builder.add_conditional_edges(
         "sentence_type",
         section_type_condition(),
