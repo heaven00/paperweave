@@ -60,7 +60,7 @@ class ExpertUttterance:
         return state
 
 
-def human_node(state: MessagesState) -> Command[Literal["host"]]:
+def human_node(state: MessagesState) -> Command[Literal["sentence_type"]]:
     """A node for collecting user input."""
     user_input = interrupt(value="Ready for user input.")
     podcast = state["podcast"]
@@ -70,7 +70,7 @@ def human_node(state: MessagesState) -> Command[Literal["host"]]:
             )
     return Command(
         update=state,
-        goto="host"
+        goto="sentence_type"
     )
 
 class SentenceType:
@@ -135,7 +135,7 @@ def get_utterance_graph(podcast_tech_level: str = "expert"):
     builder.add_edge(START, "host")
     builder.add_edge("host", "expert")
     builder.add_edge("expert", "human")
-    builder.add_edge("human","sentence_type")
+    #builder.add_edge("human","sentence_type")
     builder.add_conditional_edges(
         "sentence_type",
         section_type_condition(),
