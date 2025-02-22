@@ -1,6 +1,3 @@
-from typing import List, Dict
-from langchain_openai import ChatOpenAI
-from langgraph.graph import StateGraph
 from langgraph.types import Command
 from langgraph.graph import StateGraph, START, END
 
@@ -11,23 +8,23 @@ from typing import Literal
 
 from paperweave.data_type_direct_llm_call import QuestionChoice
 from paperweave.transforms import extract_list, transcript_to_full_text
-from paperweave.flow_elements.flows import get_question_choice
-
-env_file = Path(__file__).parent.parent / ".env"
-
-# Load the .env file
-load_dotenv(env_file)
-
-os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_KEY") or ""
+from paperweave.flow_elements.flows import (
+    get_question_choice,
+    get_follow_question,
+    get_next_question_index,
+    reformulate_question,
+)
+from paperweave.data_type import Utterance
 
 
 from paperweave.data_type import MyState
 from paperweave.model import get_chat_model
 
 
-class Agent:
-    def __init__(self):
+class HostQuestionAgent:
+    def __init__(self, tech_level: str = "expert"):
         self.model = get_chat_model()
+        self.tech_level = tech_level
 
     def __call__(
         self, state: MyState
@@ -40,11 +37,11 @@ class Agent:
         ]
     ]:
         transcript = transcript_to_full_text(state["podcast"]["transcript"])
-        questions = state["question"]
+        questions = state["questions"]
         response = get_question_choice(
             model=self.model,
             paper_title="Attention is all you need",
-            podcast_tech_level="expert",
+            podcast_tech_level=self.tech_level,
             transcript=transcript,
             questions=questions,
         )
@@ -55,37 +52,87 @@ class Agent:
             QuestionChoice.OTHER_QUESTION: "take_any_question",
             QuestionChoice.NO_QUESTION: "end_section_questions",
         }
-        response = QuestionChoice.NO_QUESTION
+        response = goto.get(response.question_choice, QuestionChoice.FIRST_QUESTION)
+
         return Command(
             # Specify which agent to call next
-            goto=goto.get(response, QuestionChoice.FIRST_QUESTION)
+            goto=response
         )
 
 
 # Node 1: Take the first element from list_A and add it to list_B
 def take_first_question(state: MyState) -> MyState:
     if state["questions"]:
-        state["current_question"] = state["current_question"].pop(0)
+        state["current_question"] = state["questions"].pop(0)
     return state
 
 
-# Node 2: Generate a new entry based on message history and add to list_B
-def generate_new_question(state: MyState) -> MyState:
-    messages = state["message_history"]
-    response = llm.invoke(messages)
-    state["list_B"].append(response.content)
-    return state
+class GenerateNewQuestion:
+    def __init__(self, tech_level: str = "expert"):
+        self.model = get_chat_model()
+        self.tech_level = tech_level
+
+    def __call__(self, state: MyState) -> MyState:
+        podcast = state["podcast"]
+        transcript = podcast["transcript"]
+        paper_title = podcast["paper"]["title"]
+        question = get_follow_question(
+            model=self.model,
+            paper_title=paper_title,
+            podcast_tech_level=self.tech_level,
+            transcript=transcript,
+        )
+        state["current_question"] = question
+        return state
 
 
-# Node 3: Take a different element from list_A (e.g., the second) and add to list_B
-def take_any_question(state: MyState) -> MyState:
-    if len(state["list_A"]) > 1:
-        state["list_B"].append(state["list_A"][1])
-    return state
+class TakeAnyQuestion:
+    def __init__(self, tech_level: str = "expert"):
+        self.model = get_chat_model()
+        self.tech_level = tech_level
+
+    def __call__(self, state: MyState) -> MyState:
+        podcast = state["podcast"]
+        transcript = podcast["transcript"]
+        paper_title = podcast["paper"]["title"]
+        questions = state["questions"]
+        question_index = get_next_question_index(
+            model=self.model,
+            paper_title=paper_title,
+            podcast_tech_level=self.tech_level,
+            transcript=transcript,
+            questions=questions,
+        )
+        current_question = ""
+        if question_index < len(state["questions"]):
+            current_question = state["questions"].pop(question_index)
+        state["current_question"] = current_question
+        return state
 
 
-def reformulate_question(state: MyState) -> MyState:
-    return state
+class ReformulateQuestion:
+    def __init__(self, tech_level: str = "expert"):
+        self.model = get_chat_model()
+        self.tech_level = tech_level
+
+    def __call__(self, state: MyState) -> MyState:
+        question = state["current_question"]
+        podcast = state["podcast"]
+        transcript = podcast["transcript"]
+        paper_title = podcast["paper"]["title"]
+        reformulate_question_str = reformulate_question(
+            model=self.model,
+            paper_title=paper_title,
+            podcast_tech_level=self.tech_level,
+            transcript=transcript,
+            question=question,
+        )
+        state["current_question"] = reformulate_question_str
+
+        podcast["transcript"].append(
+            Utterance(persona=podcast["host"], speach=question, category="question")
+        )
+        return state
 
 
 def end_section_questions(state: MyState) -> MyState:
@@ -94,18 +141,26 @@ def end_section_questions(state: MyState) -> MyState:
     return state
 
 
-def obtain_get_question_graph():
+def obtain_get_question_graph(podcast_tech_level: str = "expert"):
     # Define the workflow graph
     builder = StateGraph(MyState)
     builder.add_node("take_first_question", take_first_question)
-    builder.add_node("generate_new_question", generate_new_question)
-    builder.add_node("take_any_question", take_any_question)
-    builder.add_node("reformulate_question", reformulate_question)
+    builder.add_node(
+        "generate_new_question", GenerateNewQuestion(tech_level=podcast_tech_level)
+    )
+    builder.add_node(
+        "take_any_question", TakeAnyQuestion(tech_level=podcast_tech_level)
+    )
+    builder.add_node(
+        "reformulate_question", ReformulateQuestion(tech_level=podcast_tech_level)
+    )
     builder.add_node("end_section_questions", end_section_questions)
-    builder.add_node("agent", Agent())
+    builder.add_node(
+        "host_question_agent", HostQuestionAgent(tech_level=podcast_tech_level)
+    )
 
     # Define the execution flow
-    builder.add_edge(START, "agent")
+    builder.add_edge(START, "host_question_agent")
     builder.add_edge("take_first_question", "reformulate_question")
     builder.add_edge("generate_new_question", "reformulate_question")
     builder.add_edge("take_any_question", "reformulate_question")
@@ -117,6 +172,13 @@ def obtain_get_question_graph():
 
 
 if __name__ == "__main__":
+    env_file = Path(__file__).parent.parent / ".env"
+
+    # Load the .env file
+    load_dotenv(env_file)
+
+    os.environ["OPENAI_API_KEY"] = os.getenv("OPENAI_KEY") or ""
+
     graph = obtain_get_question_graph()
 
     graph_as_image = graph.get_graph().draw_mermaid_png()

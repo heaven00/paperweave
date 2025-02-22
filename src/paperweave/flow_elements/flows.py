@@ -9,11 +9,17 @@ from paperweave.flow_elements.prompt_templates import (
     host_conclusion_template,
     find_sections_questions_template,
     choose_question_choice_template,
+    choose_question_index_template,
+    reformulate_question_template,
+    generate_follow_up_question_template,
 )
 from paperweave.transforms import extract_list
 from paperweave.data_type_direct_llm_call import (
     SectionQuestionLLMOutput,
     LLMResponseQuestionChoice,
+    FollowUpQuestion,
+    NextQuestionIndex,
+    ReformulateQuestion,
 )
 
 
@@ -202,3 +208,65 @@ def get_question_choice(
     response = model_with_structure.invoke(prompt)
     result = response.model_dump()
     return response
+
+
+def get_follow_question(
+    model,
+    paper_title: str,
+    podcast_tech_level: str,
+    transcript: str,
+) -> FollowUpQuestion:
+    variables = {
+        "paper_title": paper_title,
+        "podcast_tech_level": podcast_tech_level,
+        "transcript": transcript,
+    }
+
+    prompt = generate_follow_up_question_template.invoke(variables)
+
+    model_with_structure = model.with_structured_output(FollowUpQuestion)
+    response = model_with_structure.invoke(prompt)
+    return response.question
+
+
+def get_next_question_index(
+    model,
+    paper_title: str,
+    podcast_tech_level: str,
+    transcript: str,
+    questions: List[str],
+) -> NextQuestionIndex:
+    questions = [f"{index}-{question}" for index, question in enumerate(questions)]
+    questions = "\n ".join(question for question in questions)
+    variables = {
+        "paper_title": paper_title,
+        "podcast_tech_level": podcast_tech_level,
+        "transcript": transcript,
+        "questions": questions,
+    }
+    prompt = choose_question_index_template.invoke(variables)
+
+    model_with_structure = model.with_structured_output(NextQuestionIndex)
+    response = model_with_structure.invoke(prompt)
+    return response.question_index
+
+
+def reformulate_question(
+    model,
+    paper_title: str,
+    podcast_tech_level: str,
+    transcript: str,
+    question: str,
+) -> ReformulateQuestion:
+    variables = {
+        "paper_title": paper_title,
+        "podcast_tech_level": podcast_tech_level,
+        "transcript": transcript,
+        "question": question,
+    }
+
+    prompt = reformulate_question_template.invoke(variables)
+
+    model_with_structure = model.with_structured_output(ReformulateQuestion)
+    response = model_with_structure.invoke(prompt)
+    return response.question

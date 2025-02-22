@@ -22,6 +22,7 @@ from langchain_ollama import ChatOllama
 from dotenv import load_dotenv
 from pathlib import Path
 from copy import copy
+from paperweave.graph.get_question import obtain_get_question_graph
 
 env_file = Path(__file__).parent.parent / ".env"
 
@@ -68,6 +69,8 @@ class ExpertUttterance:
         paper_title = podcast["paper"]["title"]
         paper_text = podcast["paper"]["text"]
         question = state["current_question"]
+        if not question:
+            return state
 
         previous_question = "no previous question"
         previous_answer = "no previous answer"
@@ -97,7 +100,9 @@ class ExpertUttterance:
 
 def get_utterance_subgraph(podcast_tech_level: str = "expert"):
     builder = StateGraph(MyState, input=MyState, output=MyState)
-    builder.add_node("host", HostUttterance(podcast_tech_level=podcast_tech_level))
+    builder.add_node(
+        "host", obtain_get_question_graph(podcast_tech_level=podcast_tech_level)
+    )
     builder.add_node("expert", ExpertUttterance(podcast_tech_level=podcast_level))
     builder.add_edge(START, "host")
     builder.add_edge("host", "expert")
@@ -226,7 +231,7 @@ list_articles = [
     "1706.03762v7"
 ]  # ,"1810.04805v2","2404.19756v4","2410.10630v1","2411.17703v1"]
 nb_section = 3
-begin_nb_question_per_section = 2
+begin_nb_question_per_section = 5
 podcast_level = "expert"
 for article in list_articles:
     input = {

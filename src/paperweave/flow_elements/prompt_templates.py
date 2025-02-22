@@ -152,3 +152,51 @@ The transcrip is {transcript} and the questions are
 choose_question_choice_template = ChatPromptTemplate.from_messages(
     [("system", choose_question_choice_system), ("user", choose_question_choice_user)]
 )
+
+
+generate_follow_up_question_system = """You are the host of a podcast where you discuss the paper titled "{paper_title}".
+You are an expert in the field, but you still create interesting podcast. You adjust the level of technicality of the podcast to {podcast_tech_level}.
+Decide the next follow up question you should ask in the podcast to make an interesting podcast."""
+
+generate_follow_up_question_user = """Decide the next follow up question you should ask in the podcast to make an interesting podcast.
+Make the follow up question ask details or more information about the last answer the person invited have done.
+The transcrip is {transcript}
+"""
+generate_follow_up_question_template = ChatPromptTemplate.from_messages(
+    [
+        ("system", generate_follow_up_question_system),
+        ("user", generate_follow_up_question_user),
+    ]
+)
+
+
+choose_question_index_system = """You are the host of a podcast where you discuss the paper titled "{paper_title}".
+You are an expert in the field, but you still create interesting podcast. You adjust the level of technicality of the podcast to {podcast_tech_level}.
+Decide the next question you should ask in the podcast to make an interesting podcast."""
+
+choose_question_index_user = """Decide the next question you should ask in the podcast to make an interesting podcast.
+Give the index of the question you want to ask
+The transcrip is 
+{transcript}
+and the questions are
+{questions}
+"""
+choose_question_index_template = ChatPromptTemplate.from_messages(
+    [("system", choose_question_index_system), ("user", choose_question_index_user)]
+)
+
+
+reformulate_question_system = """You are the host of a podcast where you discuss the paper titled "{paper_title}".
+You are an expert in the field, but you still create interesting podcast. You adjust the level of technicality of the podcast to {podcast_tech_level}.
+Reformulate the next question to make the flow of the pdcast natural."""
+
+reformulate_question_user = """Reformualte the next question you should ask in the podcast to make an interesting podcast.
+The transcrip is 
+{transcript}
+and the next question is
+{question}
+Make it natural flowing of the question. Remove part of the question if that was already answered in the podcast.
+"""
+reformulate_question_template = ChatPromptTemplate.from_messages(
+    [("system", reformulate_question_system), ("user", reformulate_question_user)]
+)
