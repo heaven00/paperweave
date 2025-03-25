@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 from src.paperweave.graph.extraction_and_intro import GetSectionsAnsQuestions
-from src.paperweave.data_type import MyState, Paper, Podcast
+from src.paperweave.data_type import MyState, Paper, Podcast, Section
 
 
 def test_get_sections_ans_questions():

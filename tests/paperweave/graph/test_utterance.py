@@ -4,7 +4,7 @@ from src.paperweave.graph.utterance_and_interaction import (
     modify_sections_questions,
     get_utterance_graph,
 )
-from src.paperweave.data_type import MyState, Section, Podcast, Persona, Paper
+from src.paperweave.data_type import MyState, Section, Podcast, Persona, Paper, Utterance
 
 
 def test_modify_sections_questions():
