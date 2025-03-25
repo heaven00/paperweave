@@ -22,6 +22,7 @@ async def start():
         content="Please provide the Arxiv link or ID (e.g., '1706.03762v7') of the paper you want to discuss.",
     ).send()
 
+
 def is_valid_arxiv_id(arxiv_str: str) -> str | None:
     """Extract and validate an Arxiv ID from any input string."""
     match = ARXIV_ID_PATTERN.search(arxiv_str)
@@ -32,7 +33,6 @@ def is_valid_arxiv_id(arxiv_str: str) -> str | None:
 
 @cl.on_message
 async def handle_message(message: cl.Message):
-    arxiv_id = cl.user_session.get("arxiv_id")
     link_provided = cl.user_session.get("link_provided", False)
 
     if not link_provided:
@@ -58,14 +58,20 @@ async def handle_message(message: cl.Message):
         ).send()
     else:
         # Proceed with normal processing (e.g., generate podcast content)
-        await process_user_query(message, arxiv_id)
+        arxiv_id = cl.user_session.get("arxiv_id")
+        if arxiv_id is not None:
+            await process_user_query(message, arxiv_id)
+
 
 async def process_user_query(message: cl.Message, arxiv_id: str):
-    user_question = message.content
-
     # Example: Fetch paper data and generate podcast content
     # Replace this with your actual logic (e.g., call scripts/run_v1.py)
     await cl.Message(
         content=f"Processing your question about Arxiv paper {arxiv_id}...",
         author="PaperWeave",
     ).send()
+
+
+if __name__ == "__main__":
+    from chainlit.cli import run_chainlit
+    run_chainlit(__file__)

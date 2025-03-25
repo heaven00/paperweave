@@ -36,5 +36,18 @@ include = ["paperweave"]
 [tool.uv.sources]
 paperweave = { workspace = true }
 
+[dependency-groups]
+dev = [
+    "pylint>=3.3.6",
+    "pytest-asyncio>=0.26.0",
+    "pytest>=8.3.5",
+]
+
 [tool.uv]
 package = true
+
+
+[tool.pytest.ini_options]
+pythonpath = [
+    "src",
+]
