@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, patch
 from src.app.ui import is_valid_arxiv_id, handle_message
+import chainlit as cl
 
 # Test regex validation function
 def test_is_valid_arxiv_id():
