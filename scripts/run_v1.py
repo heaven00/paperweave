@@ -35,7 +35,7 @@ from paperweave.model import get_chat_model
 from paperweave.graph.extraction_and_intro import (
     GetPaper,
     GetIntro,
-    GetSectionsAnsQuestions,
+    GetSectionsAndQuestions,
     InitPodcast,
 )
 
@@ -120,7 +120,7 @@ class GetQuestionsForSection:
             question for question in questions
         ]  # simple way to make a copy of the list
         return state
-    
+
 class EndSection:
     def __call__(self, state: MyState) -> MyState:
         state["index_section"] = state["index_section"] + 1
@@ -165,7 +165,7 @@ class ModifySectionsQuestions:
         print('initial sections:',state["sections"])
         state["sections"] = [section["section_subject"] for section in state["podcast"]["sections"]]
         print('updated sections',state["sections"])
-        ###state["index_section"] +=1 
+        ###state["index_section"] +=1
 
         return state
 
@@ -203,8 +203,8 @@ class ModifySectionsQuestions:
 # You are an expert in the field, but you still create interesting podcast. You adjust the level of technicality of the podcast to {podcast_tech_level}.
 # Generate a list of sections of the podcast and questions to be asked to make it an interesting podcast."""
 
-# modify_sections_questions_user = """Create a list of sections of the podcast. Each section should contain questions to be asked.  
-# DO NOT FOLLOW THE STRUCTURE OF THE PAPER. MAKE IT THE STRUCTURE OF AN INTERESTING PODCAST! 
+# modify_sections_questions_user = """Create a list of sections of the podcast. Each section should contain questions to be asked.
+# DO NOT FOLLOW THE STRUCTURE OF THE PAPER. MAKE IT THE STRUCTURE OF AN INTERESTING PODCAST!
 
 # Create a list of {nb_sections} sections (number_of_section) that will follow the sections:
 # {previous_sections}
@@ -220,7 +220,7 @@ class ModifySectionsQuestions:
 # )
 
 #############################
-    
+
 class Conclusion:
     def __init__(self, podcast_tech_level: str = "expert"):
         self.model = get_chat_model()
@@ -277,7 +277,7 @@ def build_graph(
     builder.add_node("intro_podcast", GetIntro(podcast_level=podcast_level))
     builder.add_node(
         "get_sections",
-        GetSectionsAnsQuestions(
+        GetSectionsAndQuestions(
             nb_section=nb_section,
             podcast_tech_level=podcast_level,
             nb_question_per_section=begin_nb_question_per_section,
@@ -293,9 +293,9 @@ def build_graph(
     builder.add_node(
         "modify_flow",
         ModifySectionsQuestions(
-            nb_section=nb_section, 
-            nb_question_per_section=begin_nb_question_per_section, 
-            podcast_tech_level=podcast_level, 
+            nb_section=nb_section,
+            nb_question_per_section=begin_nb_question_per_section,
+            podcast_tech_level=podcast_level,
             sentence="Speak about the paper's results", # !! Here the listener's input is hard coded
         ),
     )
@@ -395,9 +395,9 @@ for article in list_articles:
 # find_sentence_type_system =  """You are the host of a podcast where you discuss a paper".
 # The person listening to your podcast is talking to you."""
 
-# find_sentence_type_user = """The person is saying: "{sentence}". 
+# find_sentence_type_user = """The person is saying: "{sentence}".
 # Classify what of the following option is true:
-# 1) the person is asking a question about the paper 
+# 1) the person is asking a question about the paper
 # 2) the person is asking you to change the layout of the podcast or to change the topic to discuss
 
 # If the correct option is 1) then print "question", if the correct option is 2) then print "directive", else print "NA".
@@ -414,13 +414,13 @@ for article in list_articles:
 #     variables = {
 #         "sentence": sentence,
 #     }
-    
+
 #     # Format the prompt with the variables
 #     prompt = find_sentence_type_template.invoke(variables)
-    
+
 #     # Get the model's response
 #     response = model.invoke(prompt)
-    
+
 #     if "question" in response.content:
 #         sentence_type = 'Q' #question
 #     elif "directive" in response.content:
@@ -451,5 +451,3 @@ list_requests = ["What is attention?",
 ]
 for request in list_requests:
     print(request,": ",classifier(request))
-
-

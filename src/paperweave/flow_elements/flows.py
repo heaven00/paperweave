@@ -73,7 +73,7 @@ def create_answer(
     previous_question,
     previous_answer,
     new_question,
-):
+) -> str:
     variables = {
         "paper_title": paper_title,
         "podcast_tech_level": podcast_tech_level,
@@ -93,7 +93,7 @@ def create_answer(
 
 def create_conclusion(
     model, paper_title, podcast_tech_level, paper, podcast_transcript: str
-):
+) -> str:
     variables = {
         "paper_title": paper_title,
         "podcast_tech_level": podcast_tech_level,
@@ -195,19 +195,18 @@ def get_question_choice(
     transcript: str,
     questions: List[str],
 ) -> LLMResponseQuestionChoice:
-    questions = "\n - ".join(question for question in questions)
+    questions_str = "\n - ".join(questions)
     variables = {
         "paper_title": paper_title,
         "podcast_tech_level": podcast_tech_level,
         "transcript": transcript,
-        "questions": questions,
+        "questions": questions_str,
     }
 
     prompt = choose_question_choice_template.invoke(variables)
 
     model_with_structure = model.with_structured_output(LLMResponseQuestionChoice)
     response = model_with_structure.invoke(prompt)
-    result = response.model_dump()
     return response
 
 
@@ -239,12 +238,12 @@ def get_next_question_index(
     questions: List[str],
 ) -> NextQuestionIndex:
     questions = [f"{index}-{question}" for index, question in enumerate(questions)]
-    questions = "\n ".join(question for question in questions)
+    questions_str = "\n ".join(questions)
     variables = {
         "paper_title": paper_title,
         "podcast_tech_level": podcast_tech_level,
         "transcript": transcript,
-        "questions": questions,
+        "questions": questions_str,
     }
     prompt = choose_question_index_template.invoke(variables)
 
@@ -280,13 +279,13 @@ def get_sentence_type(
     variables = {
         "sentence": sentence,
     }
-    
+
     # Format the prompt with the variables
     prompt = find_sentence_type_template.invoke(variables)
-    
+
     # Get the model's response
     response = model.invoke(prompt)
-    
+
     if "question" in response.content:
         sentence_type = 'user_question' #question
     elif "directive" in response.content:
@@ -320,4 +319,3 @@ def get_modified_sections_questions(
     model_with_structure = model.with_structured_output(SectionQuestionLLMOutput)
     response = model_with_structure.invoke(prompt)
     return response
-

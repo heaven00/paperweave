@@ -1,15 +1,14 @@
-import pytest
-from unittest.mock import patch, MagicMock
-from src.paperweave.graph.get_question import HostQuestionAgent
-from paperweave.data_type_direct_llm_call import QuestionChoice
-from src.paperweave.data_type import MyState
+from unittest.mock import patch
+from paperweave.graph.get_question import HostQuestionAgent
+from paperweave.data_type_direct_llm_call import LLMResponseQuestionChoice, QuestionChoice
+from paperweave.data_type import MyState, Paper, Podcast
 
 
 def test_host_question_agent_route():
     agent = HostQuestionAgent()
-    state = MyState(questions=["Q1", "Q2"])
+    state = MyState(podcast=Podcast(paper=Paper()), questions=["Q1", "Q2"])
 
-    with patch('paperweave.flow_elements.flows.get_question_choice') as mock:
-        mock.return_value = QuestionChoice.NEW_QUESTION
+    with patch("paperweave.graph.get_question.get_question_choice") as mock:
+        mock.return_value = LLMResponseQuestionChoice(question_choice=QuestionChoice.NEW_QUESTION)
         result = agent(state)
         assert result.goto == "generate_new_question"

@@ -1,4 +1,5 @@
-from paperweave.data_type import MyState, Utterance
+from starlette.datastructures import State
+from paperweave.data_type import MyState, Persona, Utterance
 from paperweave.flow_elements.flows import (
     create_answer,
     create_conclusion,
@@ -12,40 +13,38 @@ from langgraph.checkpoint.memory import MemorySaver
 from typing import Literal, Callable
 
 from paperweave.transforms import transcript_to_full_text
-
-
 class HostUttterance:
     def __call__(self, state: MyState):
-        podcast = state["podcast"]
-        if state["questions"]:
-            state["current_question"] = state["questions"].pop(0)
-            state["questions_asked"].append(state["current_question"])
+        podcast = state.podcast
+        if state.questions:
+            state.current_question = state.questions.pop(0)
+            state.questions_asked.append(state.current_question)
         else:
             return state
-        
+
         podcast.transcript.append(
             Utterance(
-                persona=podcast["host"],
-                speach=state["current_question"],
+                persona=podcast.host,
+                speach=state.current_question,
                 category="question",
             )
         )
         return state
 
 
-class ExpertUttterance:
+class ExpertUtterance:
     def __call__(self, state: MyState):
-        podcast = state["podcast"]
-        paper_title = podcast["paper"]["title"]
-        paper_text = podcast["paper"]["text"]
-        current_question = state["current_question"]
-        
+        podcast = state.podcast
+        paper_title = podcast.paper.title
+        paper_text = podcast.paper.text
+        current_question = state.current_question
+
         previous_answer = ""
-        if podcast["transcript"]:
-            previous_entry = podcast["transcript"][-1]
-            if previous_entry["category"] == "answer":
-                previous_answer = previous_entry["speach"]
-        
+        if podcast.transcript:
+            previous_entry = podcast.transcript[-1]
+            if previous_entry.category == "answer":
+                previous_answer = previous_entry.speach
+
         answer = create_answer(
             model=get_chat_model(),
             paper_title=paper_title,
@@ -55,28 +54,28 @@ class ExpertUttterance:
             previous_answer=previous_answer,
             new_question=current_question,
         )
-        
+
         podcast.transcript.append(
             Utterance(
-                persona=podcast["expert"],
+                persona=podcast.expert,
                 speach=answer,
                 category="answer",
             )
         )
-        state["index_question"] += 1
-        
+        state.index_question += 1
+
         return state
 
 
 def human_node(state: MyState) -> Command[Literal["after_human", "sentence_type"]]:
     """A node for collecting user input."""
     user_input = interrupt(value="Ready for user input.")
-    podcast = state["podcast"]
+    podcast = state.podcast
     if len(user_input) > 0:
         podcast.transcript.append(
-            Utterance(persona="user", speach=user_input, category="user_question")
+            Utterance(persona=Persona(name="user"), speach=user_input, category="user_question")
         )
-        state["current_question"] = user_input
+        state.current_question = user_input
         return Command(update=state, goto="sentence_type")
     return Command(update=state, goto="after_human")
 
@@ -84,15 +83,15 @@ def human_node(state: MyState) -> Command[Literal["after_human", "sentence_type"
 def sentence_type(state: MyState) -> MyState:
     sentence_type = get_sentence_type(
         model=get_chat_model(),
-        sentence=state["podcast"]["transcript"][-1]["speach"],
+        sentence=state.podcast.transcript[-1].speach,
     )
-    state["podcast"]["transcript"][-1]["category"] = sentence_type
+    state.podcast.transcript[-1].category = sentence_type
     return state
 
 
 def section_type_condition() -> Callable:
     def should_change_flow(state: MyState) -> bool:
-        return state["podcast"]["transcript"][-1]["category"] == "user_directive"
+        return state.podcast.transcript[-1].category == "user_directive"
 
     return should_change_flow
 
@@ -100,29 +99,27 @@ def section_type_condition() -> Callable:
 def modify_sections_questions(
         state: MyState,
     ) -> MyState:
-    podcast = state["podcast"]
-    paper = podcast["paper"]
-    index_section = state["index_section"]
-    previous_sections = state["sections"][: index_section + 1]  # previous+current
+    podcast = state.podcast
+    paper = podcast.paper
+    index_section = state.index_section
+    previous_sections = podcast.sections[:index_section]  # previous+current
     modified = get_modified_sections_questions(
         model=get_chat_model(),
-        paper_title=paper["title"],
+        paper_title=paper.title,
         podcast_tech_level="expert",
-        paper=paper["text"],
-        nb_sections=5 - (index_section + 1),
+        paper=paper.text,
+        nb_sections=5 - index_section,
         nb_questions_per_section=2,
         previous_sections=previous_sections,
-        sentence=state["podcast"]["transcript"][-1]["speach"],
+        sentence=state.podcast.transcript[-1].speach,
     )
-    
-    podcast.sections = (
-        podcast.sections[: index_section + 1] + modified.sections
-    )
-    state["sections"] = [
-        section["section_subject"] for section in podcast.sections
+
+    podcast.sections = previous_sections + modified.sections
+    state.sections = [
+        section.section_subject for section in podcast.sections
     ]
-    state["index_section"] += 1  # Increment section index
-    
+    state.index_section += 1  # Increment section index
+
     return state
 
 
@@ -133,11 +130,11 @@ class GetQuestionsForSection:
         self.podcast_tech_level = podcast_tech_level
 
     def __call__(self, state: MyState) -> MyState:
-        podcast = state["podcast"]
-        index_section = state["index_section"]
+        podcast = state.podcast
+        index_section = state.index_section
 
-        questions = podcast["sections"][index_section]["questions"]
-        state["questions"] = [
+        questions = podcast.sections[index_section].questions
+        state.questions = [
             question for question in questions
         ]  # simple way to make a copy of the list
         return state
@@ -145,8 +142,8 @@ class GetQuestionsForSection:
 
 class EndSection:
     def __call__(self, state: MyState) -> MyState:
-        state["index_section"] += 1
-        state["index_question"] = 0
+        state.index_section += 1
+        state.index_question = 0
         return state
 
 
@@ -156,10 +153,10 @@ class Conclusion:
         self.podcast_tech_level = podcast_tech_level
 
     def __call__(self, state: MyState) -> MyState:
-        podcast = state["podcast"]
-        paper_title = state["podcast"]["paper"]["title"]
-        paper_text = state["podcast"]["paper"]["text"]
-        transcript = transcript_to_full_text(state["podcast"]["transcript"])
+        podcast = state.podcast
+        paper_title = podcast.paper.title
+        paper_text = podcast.paper.text
+        transcript = transcript_to_full_text(state.podcast.transcript)
         conclusion_text = create_conclusion(
             model=self.model,
             paper_title=paper_title,
@@ -167,22 +164,23 @@ class Conclusion:
             paper=paper_text,
             podcast_transcript=transcript,
         )
-        state["podcast"]["transcript"].append(
+        state.podcast.transcript.append(
             Utterance(
-                persona=podcast["host"], speach=conclusion_text, category="conclusion"
+                persona=podcast.host, speach=conclusion_text, category="conclusion"
             )
         )
+        return state
 
 
 def loop_list_condition(index_name: str, list_name: str) -> Callable:
     def should_continue(state: MyState) -> bool:
-        return state[index_name] < len(state[list_name])
+        return state.__getattribute__(index_name) < len(state.__getattribute__(list_name))
     return should_continue
 
 
 def loop_non_empty_list(list_name: str) -> Callable:
     def should_continue(state: MyState) -> bool:
-        return bool(state[list_name])
+        return bool(state.__getattribute__(list_name))
     return should_continue
 
 
@@ -196,8 +194,8 @@ def get_utterance_graph(podcast_tech_level: str = "expert"):
         "get_question",
         GetQuestionsForSection(),
     )
-    builder.add_node("host", HostUttterance(podcast_tech_level=podcast_tech_level))
-    builder.add_node("expert", ExpertUttterance(podcast_tech_level=podcast_tech_level))
+    builder.add_node("host", HostUttterance())
+    builder.add_node("expert", ExpertUtterance())
     builder.add_node("human", human_node)
     builder.add_node("sentence_type", sentence_type)
     builder.add_node("modify_flow", modify_sections_questions)

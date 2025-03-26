@@ -7,7 +7,7 @@ import os
 from typing import Literal
 
 from paperweave.data_type_direct_llm_call import QuestionChoice
-from paperweave.transforms import extract_list, transcript_to_full_text
+from paperweave.transforms import transcript_to_full_text
 from paperweave.flow_elements.flows import (
     get_question_choice,
     get_follow_question,
@@ -36,14 +36,14 @@ class HostQuestionAgent:
             "take_any_question",
         ]
     ]:
-        transcript = transcript_to_full_text(state["podcast"]["transcript"])
-        questions = state["questions"]
+        transcript = transcript_to_full_text(state.podcast.transcript)
+        questions = state.questions
         response = get_question_choice(
             model=self.model,
             paper_title="Attention is all you need",
             podcast_tech_level=self.tech_level,
             transcript=transcript,
-            questions=questions,
+            questions=questions
         )
 
         goto = {
@@ -59,11 +59,10 @@ class HostQuestionAgent:
             goto=response
         )
 
-
 # Node 1: Take the first element from list_A and add it to list_B
 def take_first_question(state: MyState) -> MyState:
-    if state["questions"]:
-        state["current_question"] = state["questions"].pop(0)
+    if state.questions:
+        state.current_question = state.questions.pop(0)
     return state
 
 
@@ -73,16 +72,16 @@ class GenerateNewQuestion:
         self.tech_level = tech_level
 
     def __call__(self, state: MyState) -> MyState:
-        podcast = state["podcast"]
-        transcript = podcast["transcript"]
-        paper_title = podcast["paper"]["title"]
-        question = get_follow_question(
+        podcast = state.podcast
+        transcript = transcript_to_full_text(podcast.transcript)
+        paper_title = podcast.paper.title
+        follow_up_question = get_follow_question(
             model=self.model,
             paper_title=paper_title,
             podcast_tech_level=self.tech_level,
             transcript=transcript,
         )
-        state["current_question"] = question
+        state.current_question = follow_up_question.question
         return state
 
 
@@ -92,21 +91,21 @@ class TakeAnyQuestion:
         self.tech_level = tech_level
 
     def __call__(self, state: MyState) -> MyState:
-        podcast = state["podcast"]
-        transcript = podcast["transcript"]
-        paper_title = podcast["paper"]["title"]
-        questions = state["questions"]
+        podcast = state.podcast
+        transcript = transcript_to_full_text(podcast.transcript)
+        paper_title = podcast.paper.title
+        questions = state.questions
         question_index = get_next_question_index(
             model=self.model,
             paper_title=paper_title,
             podcast_tech_level=self.tech_level,
             transcript=transcript,
             questions=questions,
-        )
+        ).question_index
         current_question = ""
-        if question_index < len(state["questions"]):
-            current_question = state["questions"].pop(question_index)
-        state["current_question"] = current_question
+        if question_index < len(state.questions):
+            current_question = state.questions.pop(question_index)
+        state.current_question = current_question
         return state
 
 
@@ -116,28 +115,28 @@ class ReformulateQuestion:
         self.tech_level = tech_level
 
     def __call__(self, state: MyState) -> MyState:
-        question = state["current_question"]
-        podcast = state["podcast"]
-        transcript = podcast["transcript"]
-        paper_title = podcast["paper"]["title"]
+        question = state.current_question
+        podcast = state.podcast
+        transcript = transcript_to_full_text(podcast.transcript)
+        paper_title = podcast.paper.title
         reformulate_question_str = reformulate_question(
             model=self.model,
             paper_title=paper_title,
             podcast_tech_level=self.tech_level,
             transcript=transcript,
             question=question,
-        )
-        state["current_question"] = reformulate_question_str
+        ).question
+        state.current_question = reformulate_question_str
 
-        podcast["transcript"].append(
-            Utterance(persona=podcast["host"], speach=question, category="question")
+        podcast.transcript.append(
+            Utterance(persona=podcast.host, speach=question, category="question")
         )
         return state
 
 
 def end_section_questions(state: MyState) -> MyState:
-    state["current_question"] = ""
-    state["questions"] = []
+    state.current_question = ""
+    state.questions = []
     return state
 
 

@@ -37,7 +37,7 @@ from paperweave.model import get_chat_model
 from paperweave.graph.extraction_and_intro import (
     GetPaper,
     GetIntro,
-    GetSectionsAnsQuestions,
+    GetSectionsAndQuestions,
     InitPodcast,
 )
 
@@ -185,7 +185,7 @@ def build_graph(
     builder.add_node("intro_podcast", GetIntro(podcast_level=podcast_level))
     builder.add_node(
         "get_sections",
-        GetSectionsAnsQuestions(
+        GetSectionsAndQuestions(
             nb_section=nb_section,
             podcast_tech_level=podcast_level,
             nb_question_per_section=begin_nb_question_per_section,

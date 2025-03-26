@@ -53,13 +53,13 @@ class InitPodcast:
         podcast.expert = podcast.expert or Persona(name="Mike")
         podcast.transcript = podcast.transcript or []
         podcast.sections = podcast.sections or []
-        
+
         state["questions_asked"] = state.get("questions_asked", [])
-        
+
         return state
 
 
-class GetSectionsAnsQuestions:
+class GetSectionsAndQuestions:
     def __init__(
         self, nb_section=5, podcast_tech_level="expert", nb_question_per_section=2
     ):
@@ -69,23 +69,23 @@ class GetSectionsAnsQuestions:
         self.nb_question_per_section = nb_question_per_section
 
     def __call__(self, state: MyState) -> MyState:
-        podcast = state["podcast"]
-        paper = podcast["paper"]
+        podcast = state.podcast
+        paper = podcast.paper
 
         section_and_question = get_sections_questions(
             model=self.model,
-            paper_title=paper["title"],
+            paper_title=paper.title,
             podcast_tech_level=self.podcast_tech_level,
-            paper=paper["text"],
+            paper=paper.text,
             nb_sections=self.nb_section,
             nb_questions_per_section=self.nb_question_per_section,
         )
-        
+
         podcast.sections = section_and_question.sections
-        state["sections"] = [
-            section["section_subject"] for section in podcast.sections
+        state.sections = [
+            section.section_subject for section in podcast.sections
         ]
-        
+
         return state
 
 
@@ -98,11 +98,11 @@ def init_and_intro_graph(podcast_level: str = "expert"):
     builder.add_node("intro_podcast", GetIntro(podcast_level=podcast_level))
     builder.add_node(
         "get_sections",
-        GetSectionsAnsQuestions(
+        GetSectionsAndQuestions(
             podcast_tech_level=podcast_level,
         ),
     )
-   
+
 
     # define edges
     builder.add_edge(START, "get_paper")
