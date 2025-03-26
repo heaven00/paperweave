@@ -8,7 +8,7 @@
 - follow coding functional standard inspired by "grokking simplicity"
 - write test function names describing the behaviour you are testing
 - when building tests, don't mock anything until necessary or mentioned specifically
-- chainlit is not chainlit, so avoid writing a lot of logic in chainlit functions
+- chainlit is not testable, so avoid writing a lot of logic in chainlit functions
 
 
 ## Project Structure
