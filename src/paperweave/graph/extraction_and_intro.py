@@ -38,7 +38,7 @@ class GetIntro:
 
         intro = response.content
 
-        podcast["transcript"].append(
+        podcast.transcript.append(
             Utterance(persona=podcast["host"], speach=intro, category="introduction")
         )
         state["podcast"] = podcast
@@ -47,17 +47,15 @@ class GetIntro:
 
 
 class InitPodcast:
-    def __call__(self, state: MyState):
-        if "transcript" not in state["podcast"]:
-            state["podcast"]["transcript"] = []
-        if "sections" not in state["podcast"]:
-            state["podcast"]["sections"] = []
-        if "questions_asked" not in state:
-            state["questions_asked"] = []
-
-        state["podcast"]["host"] = Persona(name="Jimmy")
-        state["podcast"]["expert"] = Persona(name="Mike")
-
+    def __call__(self, state: MyState) -> MyState:
+        podcast = state["podcast"]
+        podcast.host = podcast.host or Persona(name="Jimmy")
+        podcast.expert = podcast.expert or Persona(name="Mike")
+        podcast.transcript = podcast.transcript or []
+        podcast.sections = podcast.sections or []
+        
+        state["questions_asked"] = state.get("questions_asked", [])
+        
         return state
 
 
@@ -82,9 +80,10 @@ class GetSectionsAnsQuestions:
             nb_sections=self.nb_section,
             nb_questions_per_section=self.nb_question_per_section,
         )
-        state["podcast"]["sections"] = section_and_question.model_dump()["sections"]
+        
+        podcast.sections = section_and_question.sections
         state["sections"] = [
-            section["section_subject"] for section in state["podcast"]["sections"]
+            section["section_subject"] for section in podcast.sections
         ]
         
         return state
