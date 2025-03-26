@@ -43,10 +43,17 @@ class Podcast(BaseModel):
     transcript: list[Utterance] = Field(
         description="list of utterance, i.e. what people said", default_factory=list
     )
-    host: Persona = Field(description="host of the podcast")
-    expert: Persona = Field(description="expert who speak in the podcast")
+    host: Persona = Field(
+        description="host of the podcast",
+        default_factory=lambda: Persona(name="Default Host")
+    )
+    expert: Persona = Field(
+        description="expert who speak in the podcast",
+        default_factory=lambda: Persona(name="Default Expert")
+    )
     sections: list[Section] = Field(
-        description="list of section to talk during the podcast"
+        description="list of section to talk during the podcast",
+        default_factory=list
     )
 
 
